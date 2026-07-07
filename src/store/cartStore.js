@@ -1,56 +1,59 @@
 import { create } from "zustand";
+import { loadCart, saveCart } from "../utils/storage";
 
 export const useCartStore = create((set, get) => ({
   cart: [],
 
-  addToCart: (product) => {
-    const existing = get().cart.find((item) => item.id === product.id);
-
-    if (existing) {
-      set({
-        cart: get().cart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        ),
-      });
-    } else {
-      set({
-        cart: [
-          ...get().cart,
-          {
-            ...product,
-            quantity: 1,
-          },
-        ],
-      });
+  hydrateCart: async () => {
+    const saved = await loadCart();
+    if (saved) {
+      set({ cart: saved });
     }
   },
 
-  increaseQty: (id) =>
-    set({
-      cart: get().cart.map((item) =>
-        item.id === id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ),
-    }),
+  addToCart: (product) => {
+    let cart = [...get().cart];
+    const index = cart.findIndex((i) => i.id === product.id);
 
-  decreaseQty: (id) =>
-    set({
-      cart: get()
-        .cart.map((item) =>
-          item.id === id
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
-        .filter((item) => item.quantity > 0),
-    }),
+    if (index >= 0) {
+      cart[index] = { ...cart[index], quantity: cart[index].quantity + 1 };
+    } else {
+      cart.unshift({ ...product, quantity: 1 });
+    }
 
-  removeItem: (id) =>
-    set({
-      cart: get().cart.filter((item) => item.id !== id),
-    }),
+    set({ cart });
+    saveCart(cart);
+  },
 
-  clearCart: () => set({ cart: [] }),
+  increaseQty: (id) => {
+    const cart = get().cart.map((i) =>
+      i.id === id ? { ...i, quantity: i.quantity + 1 } : i
+    );
+
+    set({ cart });
+    saveCart(cart);
+  },
+
+  decreaseQty: (id) => {
+    const cart = get()
+      .cart
+      .map((i) =>
+        i.id === id ? { ...i, quantity: i.quantity - 1 } : i
+      )
+      .filter((i) => i.quantity > 0);
+
+    set({ cart });
+    saveCart(cart);
+  },
+
+  removeItem: (id) => {
+    const cart = get().cart.filter((i) => i.id !== id);
+    set({ cart });
+    saveCart(cart);
+  },
+
+  clearCart: () => {
+    set({ cart: [] });
+    saveCart([]);
+  },
 }));
