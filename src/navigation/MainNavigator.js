@@ -7,6 +7,7 @@ import ProductListScreen from "../screens/products/ProductListScreen";
 import ScannerScreen from "../screens/scanner/ScannerScreen";
 import OrderHistoryScreen from "../screens/orders/OrderHistoryScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
+import CustomerScreen from "../screens/customers/CustomerScreen";
 
 const Tab = createBottomTabNavigator();
 
@@ -31,6 +32,7 @@ export default function MainNavigator() {
             Products: "cube-outline",
             Scan: "scan-outline",
             Orders: "receipt-outline",
+            Customers: "people-outline",
             Profile: "person-outline",
           };
 
@@ -42,6 +44,7 @@ export default function MainNavigator() {
       <Tab.Screen name="Products" component={ProductListScreen} />
       <Tab.Screen name="Scan" component={ScannerScreen} />
       <Tab.Screen name="Orders" component={OrderHistoryScreen} />
+      <Tab.Screen name="Customers" component={CustomerScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
