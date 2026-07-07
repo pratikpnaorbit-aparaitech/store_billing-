@@ -1,11 +1,12 @@
 import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { useCartStore } from "../../store/cartStore";
 import { useProductStore } from "../../store/productStore";
 import { useOrderStore } from "../../store/orderStore";
 import { generateAndShareReceiptPDF } from "../../utils/pdfGenerator";
+import { buildThermalReceipt } from "../../utils/printer/thermalReceipt";
 
 export default function ReceiptScreen({ navigation, route }) {
   const cart = useCartStore((state) => state.cart);
@@ -34,6 +35,21 @@ export default function ReceiptScreen({ navigation, route }) {
       invoiceNo,
       date: dayjs().format("DD MMM YYYY, hh:mm A"),
     });
+  };
+
+  const previewThermalReceipt = () => {
+    const text = buildThermalReceipt({
+      cart,
+      payment,
+      subtotal,
+      gst,
+      discount,
+      total,
+      invoiceNo,
+      date: dayjs().format("DD MMM YYYY, hh:mm A"),
+    });
+
+    Alert.alert("Thermal Receipt Preview", text);
   };
 
   const finishSale = async () => {
@@ -100,6 +116,10 @@ export default function ReceiptScreen({ navigation, route }) {
         <TouchableOpacity style={styles.printBtn} activeOpacity={0.85} onPress={sharePDF}>
           <Ionicons name="print-outline" size={20} color="#FFFFFF" />
           <Text style={styles.printText}>Share PDF Receipt</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.doneBtn} activeOpacity={0.85} onPress={previewThermalReceipt}>
+          <Text style={styles.doneText}>Thermal Preview</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.doneBtn} activeOpacity={0.85} onPress={finishSale}>
