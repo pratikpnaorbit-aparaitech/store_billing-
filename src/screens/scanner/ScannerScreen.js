@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useProductStore } from "../../store/productStore";
 import { useCartStore } from "../../store/cartStore";
 
-export default function ScannerScreen({ navigation }) {
+export default function ScannerScreen({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
 
@@ -19,6 +19,11 @@ export default function ScannerScreen({ navigation }) {
 
     setScanned(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    if (route?.params?.mode === "fillBarcode") {
+      navigation.replace("AddProduct", { barcode: data });
+      return;
+    }
 
     const product = products.find((item) => item.barcode === data);
 

@@ -94,7 +94,7 @@ export default function BillingScreen({ navigation }) {
               ))}
             </View>
 
-            <TouchableOpacity activeOpacity={0.85} style={styles.generateBtn}>
+            <TouchableOpacity activeOpacity={0.85} style={styles.generateBtn} onPress={() => navigation.navigate("Receipt", { payment, subtotal, gst, discount, total })}>
               <Text style={styles.generateText}>Generate Bill</Text>
             </TouchableOpacity>
           </>

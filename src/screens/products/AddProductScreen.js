@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useProductStore } from "../../store/productStore";
 
-export default function AddProductScreen({ navigation }) {
+export default function AddProductScreen({ navigation, route }) {
   const [image, setImage] = useState(null);
   const [form, setForm] = useState({
     name: "",
@@ -25,6 +25,12 @@ export default function AddProductScreen({ navigation }) {
   });
 
   const addProduct = useProductStore((state) => state.addProduct);
+
+  useEffect(() => {
+    if (route?.params?.barcode) {
+      setForm((prev) => ({ ...prev, barcode: route.params.barcode }));
+    }
+  }, [route?.params?.barcode]);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -106,14 +112,24 @@ export default function AddProductScreen({ navigation }) {
       ].map(([label, key]) => (
         <View key={key} style={styles.field}>
           <Text style={styles.label}>{label}</Text>
-          <TextInput
-            value={form[key]}
-            onChangeText={(text) => updateField(key, text)}
-            placeholder={label}
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-            keyboardType={key === "price" || key === "stock" ? "numeric" : "default"}
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              value={form[key]}
+              onChangeText={(text) => updateField(key, text)}
+              placeholder={label}
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+              keyboardType={key === "price" || key === "stock" ? "numeric" : "default"}
+            />
+            {key === "barcode" ? (
+              <TouchableOpacity
+                style={styles.scanBtn}
+                onPress={() => navigation.navigate("BarcodeScanner", { mode: "fillBarcode" })}
+              >
+                <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       ))}
 
@@ -157,7 +173,13 @@ const styles = StyleSheet.create({
   changeImage: { textAlign: "center", color: "#0A46E4", fontWeight: "900", marginBottom: 18 },
   field: { marginBottom: 16 },
   label: { fontSize: 13, fontWeight: "800", color: "#0F172A", marginBottom: 8 },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
   input: {
+    flex: 1,
     height: 54,
     borderRadius: 18,
     backgroundColor: "#FFFFFF",
@@ -166,6 +188,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 15,
     color: "#0F172A",
+  },
+  scanBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    backgroundColor: "#0A46E4",
+    alignItems: "center",
+    justifyContent: "center",
   },
   button: {
     height: 56,

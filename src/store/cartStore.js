@@ -6,9 +6,7 @@ export const useCartStore = create((set, get) => ({
 
   hydrateCart: async () => {
     const saved = await loadCart();
-    if (saved) {
-      set({ cart: saved });
-    }
+    if (saved) set({ cart: saved });
   },
 
   addToCart: (product) => {
