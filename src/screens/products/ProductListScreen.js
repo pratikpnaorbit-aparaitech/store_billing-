@@ -5,11 +5,13 @@ import SearchBar from "../../components/products/SearchBar";
 import CategoryChip from "../../components/products/CategoryChip";
 import ProductCard from "../../components/products/ProductCard";
 import FloatingActionButton from "../../components/products/FloatingActionButton";
-import { categories, products } from "../../data/productData";
+import { categories } from "../../data/productData";
+import { useProductStore } from "../../store/productStore";
 
 export default function ProductListScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const products = useProductStore((state) => state.products);
 
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {

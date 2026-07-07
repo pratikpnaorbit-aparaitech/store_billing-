@@ -11,9 +11,43 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { useProductStore } from "../../store/productStore";
 
 export default function AddProductScreen({ navigation }) {
   const [image, setImage] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    barcode: "",
+    category: "",
+    price: "",
+    stock: "",
+    unit: "",
+  });
+
+  const addProduct = useProductStore((state) => state.addProduct);
+
+  const updateField = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const saveProduct = () => {
+    if (!form.name.trim() || !form.price.trim()) {
+      Alert.alert("Missing details", "Product name and selling price are required.");
+      return;
+    }
+
+    addProduct({
+      name: form.name.trim(),
+      barcode: form.barcode.trim() || Date.now().toString(),
+      category: form.category.trim() || "Grocery",
+      price: Number(form.price) || 0,
+      stock: Number(form.stock) || 0,
+      unit: form.unit.trim() || "1 pc",
+      image,
+    });
+
+    navigation.goBack();
+  };
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -62,14 +96,28 @@ export default function AddProductScreen({ navigation }) {
         </TouchableOpacity>
       ) : null}
 
-      {["Product Name", "Barcode", "Category", "Selling Price", "Stock Quantity", "Unit"].map((label) => (
-        <View key={label} style={styles.field}>
+      {[
+        ["Product Name", "name"],
+        ["Barcode", "barcode"],
+        ["Category", "category"],
+        ["Selling Price", "price"],
+        ["Stock Quantity", "stock"],
+        ["Unit", "unit"],
+      ].map(([label, key]) => (
+        <View key={key} style={styles.field}>
           <Text style={styles.label}>{label}</Text>
-          <TextInput placeholder={label} placeholderTextColor="#94A3B8" style={styles.input} />
+          <TextInput
+            value={form[key]}
+            onChangeText={(text) => updateField(key, text)}
+            placeholder={label}
+            placeholderTextColor="#94A3B8"
+            style={styles.input}
+            keyboardType={key === "price" || key === "stock" ? "numeric" : "default"}
+          />
         </View>
       ))}
 
-      <TouchableOpacity activeOpacity={0.85} style={styles.button} onPress={() => navigation.goBack()}>
+      <TouchableOpacity activeOpacity={0.85} style={styles.button} onPress={saveProduct}>
         <Text style={styles.buttonText}>Save Product</Text>
       </TouchableOpacity>
     </ScrollView>
