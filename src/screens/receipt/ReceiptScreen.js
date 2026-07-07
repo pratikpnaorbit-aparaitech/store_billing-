@@ -3,11 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { useCartStore } from "../../store/cartStore";
+import { useProductStore } from "../../store/productStore";
 import { generateAndShareReceiptPDF } from "../../utils/pdfGenerator";
 
 export default function ReceiptScreen({ navigation, route }) {
   const cart = useCartStore((state) => state.cart);
   const clearCart = useCartStore((state) => state.clearCart);
+  const reduceStock = useProductStore((state) => state.reduceStock);
 
   const {
     payment = "Cash",
@@ -33,6 +35,7 @@ export default function ReceiptScreen({ navigation, route }) {
   };
 
   const finishSale = () => {
+    reduceStock(cart);
     clearCart();
     navigation.navigate("Main");
   };

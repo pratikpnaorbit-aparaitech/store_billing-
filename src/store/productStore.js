@@ -71,4 +71,21 @@ export const useProductStore = create((set, get) => ({
     set({ products });
     saveProducts(products);
   },
+
+  reduceStock: (cart) => {
+    const products = get().products.map((product) => {
+      const sold = cart.find((i) => i.id === product.id);
+
+      if (!sold) return product;
+
+      return {
+        ...product,
+        stock: Math.max(0, product.stock - sold.quantity),
+      };
+    });
+
+    set({ products });
+    saveProducts(products);
+  },
+
 }));
