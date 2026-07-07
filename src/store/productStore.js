@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { loadProducts, saveProducts } from "../utils/storage";
 
 const initialProducts = [
   {
@@ -33,29 +34,41 @@ const initialProducts = [
   },
 ];
 
-export const useProductStore = create((set) => ({
+export const useProductStore = create((set, get) => ({
   products: initialProducts,
 
-  addProduct: (product) =>
-    set((state) => ({
-      products: [
-        {
-          id: Date.now().toString(),
-          ...product,
-        },
-        ...state.products,
-      ],
-    })),
+  hydrateProducts: async () => {
+    const savedProducts = await loadProducts();
+    if (savedProducts) {
+      set({ products: savedProducts });
+    }
+  },
 
-  updateProduct: (id, updatedProduct) =>
-    set((state) => ({
-      products: state.products.map((item) =>
-        item.id === id ? { ...item, ...updatedProduct } : item
-      ),
-    })),
+  addProduct: (product) => {
+    const products = [
+      {
+        id: Date.now().toString(),
+        ...product,
+      },
+      ...get().products,
+    ];
 
-  deleteProduct: (id) =>
-    set((state) => ({
-      products: state.products.filter((item) => item.id !== id),
-    })),
+    set({ products });
+    saveProducts(products);
+  },
+
+  updateProduct: (id, updatedProduct) => {
+    const products = get().products.map((item) =>
+      item.id === id ? { ...item, ...updatedProduct } : item
+    );
+
+    set({ products });
+    saveProducts(products);
+  },
+
+  deleteProduct: (id) => {
+    const products = get().products.filter((item) => item.id !== id);
+    set({ products });
+    saveProducts(products);
+  },
 }));

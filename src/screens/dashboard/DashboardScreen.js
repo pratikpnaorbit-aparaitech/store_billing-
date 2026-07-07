@@ -119,3 +119,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
+
+import react from "react";
+<ScrollView
+  style={styles.screen}
+  contentContainerStyle={styles.content}
+  showsVerticalScrollIndicator={false}
+></ScrollView>;
