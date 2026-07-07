@@ -5,6 +5,7 @@ import SearchBar from "../../components/products/SearchBar";
 import CategoryChip from "../../components/products/CategoryChip";
 import ProductCard from "../../components/products/ProductCard";
 import FloatingActionButton from "../../components/products/FloatingActionButton";
+import FloatingCartBar from "../../components/cart/FloatingCartBar";
 import { categories } from "../../data/productData";
 import { useProductStore } from "../../store/productStore";
 
@@ -69,6 +70,7 @@ export default function ProductListScreen({ navigation }) {
         }
       />
 
+      <FloatingCartBar onPress={() => navigation.navigate("Billing")} />
       <FloatingActionButton onPress={() => navigation.navigate("AddProduct")} />
     </View>
   );

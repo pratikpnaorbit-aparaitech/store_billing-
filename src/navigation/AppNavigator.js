@@ -5,6 +5,7 @@ import SplashScreen from "../screens/auth/SplashScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import MainNavigator from "./MainNavigator";
 import AddProductScreen from "../screens/products/AddProductScreen";
+import BillingScreen from "../screens/billing/BillingScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -15,6 +16,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Main" component={MainNavigator} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
+      <Stack.Screen name="Billing" component={BillingScreen} />
     </Stack.Navigator>
   );
 }
