@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const connectDB = require("./src/config/db");
 const productRoutes = require("./src/routes/productRoutes");
+const orderRoutes = require("./src/routes/orderRoutes");
 
 connectDB();
 
@@ -13,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/products", productRoutes);
+app.use("/api/orders", orderRoutes);
 
 app.get("/health", (req, res) => {
   res.json({
