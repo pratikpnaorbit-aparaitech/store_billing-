@@ -6,7 +6,9 @@ import { useCartStore } from "../../store/cartStore";
 
 export default function ProductCard({ product }) {
   const addToCart = useCartStore((state) => state.addToCart);
-  const isLowStock = product.stock <= 10;
+  const stock = Number(product.stock);
+  const isOutOfStock = stock === 0;
+  const isLowStock = stock > 0 && stock <= 10;
 
   return (
     <View>
@@ -31,9 +33,11 @@ export default function ProductCard({ product }) {
 
           <View style={styles.right}>
             <Text style={styles.price}>₹{product.price}</Text>
-            <Text style={[styles.stock, isLowStock && styles.lowStock]}>
-              Stock {product.stock}
+            <Text style={[styles.stock, isLowStock && styles.lowStock, isOutOfStock && styles.outStock]}>
+              {isOutOfStock ? "Out of stock" : `Stock ${product.stock}`}
             </Text>
+            {isLowStock ? <Text style={styles.badgeLow}>LOW STOCK</Text> : null}
+            {isOutOfStock ? <Text style={styles.badgeOut}>OUT</Text> : null}
           </View>
         </View>
 
@@ -77,7 +81,20 @@ const styles = StyleSheet.create({
   right: { alignItems: "flex-end" },
   price: { fontSize: 18, fontWeight: "900", color: "#0A46E4" },
   stock: { marginTop: 6, fontSize: 12, color: "#22C55E", fontWeight: "800" },
-  lowStock: { color: "#EF4444" },
+  lowStock: { color: "#F59E0B" },
+  outStock: { color: "#EF4444" },
+  badgeLow: {
+    marginTop: 5,
+    fontSize: 10,
+    color: "#F59E0B",
+    fontWeight: "900",
+  },
+  badgeOut: {
+    marginTop: 5,
+    fontSize: 10,
+    color: "#EF4444",
+    fontWeight: "900",
+  },
 
   addButton: {
     marginTop: 14,

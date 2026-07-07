@@ -6,6 +6,7 @@ import CategoryChip from "../../components/products/CategoryChip";
 import ProductCard from "../../components/products/ProductCard";
 import FloatingActionButton from "../../components/products/FloatingActionButton";
 import FloatingCartBar from "../../components/cart/FloatingCartBar";
+import InventorySummary from "../../components/inventory/InventorySummary";
 import { categories } from "../../data/productData";
 import { useProductStore } from "../../store/productStore";
 
@@ -42,6 +43,8 @@ export default function ProductListScreen({ navigation }) {
               <Text style={styles.title}>Products</Text>
               <Text style={styles.subtitle}>Manage inventory and pricing</Text>
             </View>
+
+            <InventorySummary products={products} />
 
             <SearchBar value={search} onChangeText={setSearch} />
 

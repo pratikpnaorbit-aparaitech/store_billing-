@@ -1,5 +1,9 @@
 import React from "react";
-import { ScrollView, View, StyleSheet } from "react-native";
+import { ScrollView, View, StyleSheet, Text } from "react-native";
+import StatsCard from "../../components/analytics/StatsCard";
+import SalesChart from "../../components/analytics/SalesChart";
+import TopProductCard from "../../components/analytics/TopProductCard";
+import { analyticsStats, weeklySales, topProducts } from "../../data/analyticsData";
 
 import AppHeader from "../../components/common/AppHeader";
 import SectionHeader from "../../components/common/SectionHeader";
@@ -95,6 +99,37 @@ export default function DashboardScreen({ navigation }) {
         amount="₹350"
         payment="Cash"
       />
+    
+      <View style={{ marginTop: 24 }}>
+        <View style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+        }}>
+          {analyticsStats.map((item) => (
+            <StatsCard key={item.id} {...item} />
+          ))}
+        </View>
+
+        <View style={{ marginTop: 20 }}>
+          <SalesChart data={weeklySales} />
+        </View>
+
+        <Text style={{
+          fontSize: 20,
+          fontWeight: "900",
+          color: "#0F172A",
+          marginTop: 24,
+          marginBottom: 14,
+        }}>
+          Top Selling Products
+        </Text>
+
+        {topProducts.map((item) => (
+          <TopProductCard key={item.id} product={item} />
+        ))}
+      </View>
+
     </ScrollView>
   );
 }
