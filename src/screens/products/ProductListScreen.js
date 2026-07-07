@@ -7,7 +7,7 @@ import ProductCard from "../../components/products/ProductCard";
 import FloatingActionButton from "../../components/products/FloatingActionButton";
 import { categories, products } from "../../data/productData";
 
-export default function ProductListScreen() {
+export default function ProductListScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
 
@@ -67,7 +67,7 @@ export default function ProductListScreen() {
         }
       />
 
-      <FloatingActionButton onPress={() => {}} />
+      <FloatingActionButton onPress={() => navigation.navigate("AddProduct")} />
     </View>
   );
 }
