@@ -1,7 +1,7 @@
 {
   "name": "smartbillingscanner",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "index.js",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "@hookform/resolvers": "^5.4.0",
@@ -34,8 +34,7 @@
     "zustand": "^5.0.14"
   },
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "expo start"
   },
   "private": true
 }

@@ -36,13 +36,13 @@ export default function AddProductScreen({ navigation, route }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const saveProduct = () => {
+  const saveProduct = async () => {
     if (!form.name.trim() || !form.price.trim()) {
       Alert.alert("Missing details", "Product name and selling price are required.");
       return;
     }
 
-    addProduct({
+    await addProduct({
       name: form.name.trim(),
       barcode: form.barcode.trim() || Date.now().toString(),
       category: form.category.trim() || "Grocery",

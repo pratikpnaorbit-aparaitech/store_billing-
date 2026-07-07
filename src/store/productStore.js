@@ -1,72 +1,60 @@
 import { create } from "zustand";
-import { loadProducts, saveProducts } from "../utils/storage";
-
-const initialProducts = [
-  {
-    id: "1",
-    name: "Amul Milk",
-    category: "Dairy",
-    price: 34,
-    stock: 25,
-    barcode: "8901234567890",
-    unit: "500 ml",
-    image: null,
-  },
-  {
-    id: "2",
-    name: "Coca Cola",
-    category: "Drinks",
-    price: 40,
-    stock: 120,
-    barcode: "8901764012345",
-    unit: "750 ml",
-    image: null,
-  },
-  {
-    id: "3",
-    name: "KitKat",
-    category: "Snacks",
-    price: 20,
-    stock: 84,
-    barcode: "8901058844552",
-    unit: "1 pc",
-    image: null,
-  },
-];
+import { saveProducts } from "../utils/storage";
+import {
+  fetchProducts,
+  createProduct,
+  updateProduct as updateProductApi,
+  deleteProduct as deleteProductApi,
+} from "../services/productApi";
 
 export const useProductStore = create((set, get) => ({
-  products: initialProducts,
+  products: [],
+  loading: false,
+  error: null,
 
   hydrateProducts: async () => {
-    const savedProducts = await loadProducts();
-    if (savedProducts) {
-      set({ products: savedProducts });
+    try {
+      set({ loading: true, error: null });
+      const products = await fetchProducts();
+      const normalized = products.map((p) => ({
+        id: p._id,
+        ...p,
+      }));
+
+      set({ products: normalized, loading: false });
+      saveProducts(normalized);
+    } catch (err) {
+      set({
+        loading: false,
+        error: err.message || "Failed to load products",
+      });
     }
   },
 
-  addProduct: (product) => {
-    const products = [
-      {
-        id: Date.now().toString(),
-        ...product,
-      },
-      ...get().products,
-    ];
+  addProduct: async (product) => {
+    const created = await createProduct(product);
+    const normalized = { id: created._id, ...created };
 
+    const products = [normalized, ...get().products];
     set({ products });
     saveProducts(products);
   },
 
-  updateProduct: (id, updatedProduct) => {
+  updateProduct: async (id, updatedProduct) => {
+    const updated = await updateProductApi(id, updatedProduct);
+    const normalized = { id: updated._id, ...updated };
+
     const products = get().products.map((item) =>
-      item.id === id ? { ...item, ...updatedProduct } : item
+      item.id === id ? normalized : item
     );
 
     set({ products });
     saveProducts(products);
   },
 
-  deleteProduct: (id) => {
+  deleteProduct: async (id) => {
+    await deleteProductApi(id);
+
     const products = get().products.filter((item) => item.id !== id);
     set({ products });
     saveProducts(products);
@@ -80,12 +68,11 @@ export const useProductStore = create((set, get) => ({
 
       return {
         ...product,
-        stock: Math.max(0, product.stock - sold.quantity),
+        stock: Math.max(0, Number(product.stock) - Number(sold.quantity)),
       };
     });
 
     set({ products });
     saveProducts(products);
   },
-
 }));

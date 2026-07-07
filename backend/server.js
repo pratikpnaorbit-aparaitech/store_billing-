@@ -14,6 +14,14 @@ app.use(express.json());
 
 app.use("/api/products", productRoutes);
 
+app.get("/health", (req, res) => {
+  res.json({
+    success: true,
+    status: "OK",
+    database: "connected",
+  });
+});
+
 app.get("/", (req, res) => {
   res.json({
     success: true,
