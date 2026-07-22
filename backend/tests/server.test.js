@@ -16,7 +16,12 @@ async function withServer(run) {
 test("reports API and database health", () => withServer(async (origin) => {
   const response = await fetch(`${origin}/health`);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { success: true, status: "OK", database: "disconnected" });
+  assert.deepEqual(await response.json(), {
+    success: true,
+    status: "OK",
+    database: "disconnected",
+    authDatabase: "disconnected",
+  });
 }));
 
 test("returns service metadata and JSON 404", () => withServer(async (origin) => {

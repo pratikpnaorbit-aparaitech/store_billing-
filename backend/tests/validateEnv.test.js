@@ -5,6 +5,7 @@ const validateEnv = require("../src/config/validateEnv");
 const productionEnv = {
   NODE_ENV: "production",
   MONGODB_URI: "mongodb+srv://cluster.example/smart-billing",
+  AUTH_MONGODB_URI: "mongodb+srv://cluster.example/servicehub-auth",
   JWT_SECRET: "a-secure-secret-that-is-over-32-characters",
   CORS_ORIGINS: "https://billing.example.com",
   CLOUDINARY_CLOUD_NAME: "company",
@@ -24,6 +25,7 @@ test("accepts a complete production environment", () => {
 test("rejects wildcard CORS and localhost databases in production", () => {
   assert.throws(() => validateEnv({ ...productionEnv, CORS_ORIGINS: "*" }), /cannot contain/);
   assert.throws(() => validateEnv({ ...productionEnv, MONGODB_URI: "mongodb:\/\/127.0.0.1/store" }), /localhost/);
+  assert.throws(() => validateEnv({ ...productionEnv, AUTH_MONGODB_URI: "mongodb:\/\/localhost/users" }), /localhost/);
 });
 
 test("requires every production integration", () => {

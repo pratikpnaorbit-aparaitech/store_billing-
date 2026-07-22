@@ -14,7 +14,7 @@ Audit date: 22 July 2026
 - Helmet security headers, rate limiting, explicit production CORS, password hashing, JWT issuer validation, graceful shutdown, health endpoint, Dockerfile, and Render Blueprint.
 - Environment validation, lint configuration, unit/API/security tests, and deployment documentation.
 - Connected read-only to the shared `all_in_one_services` database, verified 32 bcrypt-based ServiceHub accounts, and made the billing auth model compatible with the existing `users.password` field.
-- Isolated new billing records into `billing_products`, `billing_customers`, and `billing_orders` inside the shared database to prevent collection/schema collisions.
+- Split persistence into two databases: existing ServiceHub `all_in_one_services.users` for shared authentication, and separate `smart_billing` for all billing-owned collections.
 - Added Brevo transactional-email API support and verified the supplied API key plus one real test reset-code email.
 
 ## Verification results
@@ -35,7 +35,7 @@ Audit date: 22 July 2026
 - Production MongoDB Atlas, Cloudinary, SMTP, CORS origin, API hostname, and privacy-policy URL are company-owned values and were not available locally.
 - Local MongoDB Atlas and Brevo development credentials are now configured in ignored `.env` files. Production Render configuration and Cloudinary credentials are still required.
 - The supplied ServiceHub admin email exists, but the supplied admin password does not match its current bcrypt hash. No account password was changed; use the current website password or reset it through the owning ServiceHub flow.
-- Sharing the database makes accounts compatible and keeps billing collections in the same database. The ServiceHub website must explicitly read the `billing_*` collections if billing records need to appear in its UI.
+- Shared authentication keeps ServiceHub accounts compatible while the separate billing database prevents product/order/customer schema collisions. The ServiceHub website must explicitly connect to `smart_billing` if billing records need to appear in its UI.
 - The Android package/bundle identifier `com.smartbilling.scanner` must be confirmed as company-owned and unique before Play Console creation.
 - The current `LICENSE` came from the Expo starter and names Expo's copyright; company legal/engineering must replace or approve the application's final licensing notice.
 - Docker is not installed, so the included image could not be built locally; Render can build from `backend/Dockerfile` or the native Node Blueprint.

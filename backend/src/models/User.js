@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { authConnection } = require("../config/authDb");
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -10,4 +11,4 @@ const UserSchema = new mongoose.Schema({
   passwordResetExpires: { type: Date, default: null, select: false },
 }, { timestamps: true });
 
-module.exports = mongoose.model("User", UserSchema, "users");
+module.exports = authConnection.model("User", UserSchema, "users");

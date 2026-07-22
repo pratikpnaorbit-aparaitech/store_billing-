@@ -12,6 +12,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const uploadRoutes = require("./src/routes/uploadRoutes");
 const mongoose = require("mongoose");
 const validateEnv = require("./src/config/validateEnv");
+const { authConnection, connectAuthDB } = require("./src/config/authDb");
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.get("/health", (req, res) => {
     success: true,
     status: "OK",
     database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    authDatabase: authConnection.readyState === 1 ? "connected" : "disconnected",
   });
 });
 
@@ -56,9 +58,12 @@ const PORT = process.env.PORT || 5000;
 
 async function start() {
   validateEnv();
-  await connectDB();
+  await Promise.all([connectDB(), connectAuthDB()]);
   const server = app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  const shutdown = () => server.close(async () => { await mongoose.disconnect(); process.exit(0); });
+  const shutdown = () => server.close(async () => {
+    await Promise.all([mongoose.disconnect(), authConnection.close()]);
+    process.exit(0);
+  });
   process.on("SIGTERM", shutdown);
   process.on("SIGINT", shutdown);
 }

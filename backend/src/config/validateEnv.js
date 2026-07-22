@@ -1,5 +1,6 @@
 const REQUIRED_PRODUCTION_KEYS = [
   "MONGODB_URI",
+  "AUTH_MONGODB_URI",
   "JWT_SECRET",
   "CORS_ORIGINS",
   "CLOUDINARY_CLOUD_NAME",
@@ -10,6 +11,7 @@ const REQUIRED_PRODUCTION_KEYS = [
 
 function validateEnv(env = process.env) {
   if (!env.MONGODB_URI) throw new Error("MONGODB_URI is required");
+  if (!env.AUTH_MONGODB_URI) throw new Error("AUTH_MONGODB_URI is required");
   if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) {
     throw new Error("JWT_SECRET must contain at least 32 characters");
   }
@@ -26,6 +28,9 @@ function validateEnv(env = process.env) {
   }
   if (/localhost|127\.0\.0\.1/i.test(env.MONGODB_URI)) {
     throw new Error("Production MONGODB_URI cannot point to localhost");
+  }
+  if (/localhost|127\.0\.0\.1/i.test(env.AUTH_MONGODB_URI)) {
+    throw new Error("Production AUTH_MONGODB_URI cannot point to localhost");
   }
 }
 
