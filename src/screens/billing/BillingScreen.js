@@ -1,0 +1,37 @@
+import React, { useMemo, useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useCartStore } from "../../store/cartStore";
+import { useCustomerStore } from "../../store/customerStore";
+import { useSettingsStore } from "../../store/settingsStore";
+import { calculateBill, formatCurrency } from "../../utils/billing";
+
+export default function BillingScreen({ navigation }) {
+  const [payment, setPayment] = useState("Cash");
+  const [discount, setDiscount] = useState("");
+  const customers = useCustomerStore((state) => state.customers);
+  const [customerId, setCustomerId] = useState(customers[0]?.id || "walk-in");
+  const gstRate = useSettingsStore((state) => state.settings.gstRate);
+  const cart = useCartStore((state) => state.cart);
+  const increaseQty = useCartStore((state) => state.increaseQty);
+  const decreaseQty = useCartStore((state) => state.decreaseQty);
+  const removeItem = useCartStore((state) => state.removeItem);
+  const bill = useMemo(() => calculateBill(cart, gstRate, discount), [cart, discount, gstRate]);
+  const selectedCustomer = customers.find((customer) => customer.id === customerId) || customers[0];
+
+  const goToReceipt = () => {
+    if (!cart.length) return;
+    const unavailable = cart.find((item) => item.quantity > Number(item.stock || 0));
+    if (unavailable) return Alert.alert("Stock changed", `${unavailable.name} has insufficient stock.`);
+    navigation.navigate("Receipt", { ...bill, payment, customer: selectedCustomer });
+  };
+
+  return <View style={styles.screen}><View style={styles.header}><TouchableOpacity onPress={()=>navigation.goBack()} style={styles.back}><Ionicons name="arrow-back" size={22} color="#0F172A"/></TouchableOpacity><Text style={styles.title}>Billing</Text></View><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    {!cart.length ? <View style={styles.empty}><Ionicons name="cart-outline" size={48} color="#94A3B8"/><Text style={styles.emptyTitle}>Cart is empty</Text><Text style={styles.muted}>Add products to generate a bill</Text></View> : cart.map((item)=><View style={styles.item} key={item.id}><View style={styles.itemTop}><View style={styles.flex}><Text style={styles.itemName}>{item.name}</Text><Text style={styles.muted}>{formatCurrency(item.price)} × {item.quantity} · Stock {item.stock}</Text></View><TouchableOpacity onPress={()=>removeItem(item.id)}><Ionicons name="trash-outline" size={20} color="#EF4444"/></TouchableOpacity></View><View style={styles.itemBottom}><View style={styles.qty}><TouchableOpacity style={styles.qtyBtn} onPress={()=>decreaseQty(item.id)}><Ionicons name="remove" size={18}/></TouchableOpacity><Text style={styles.qtyText}>{item.quantity}</Text><TouchableOpacity style={styles.qtyBtn} onPress={()=>{if(!increaseQty(item.id)) Alert.alert('Stock limit','No more stock is available.')}}><Ionicons name="add" size={18}/></TouchableOpacity></View><Text style={styles.itemTotal}>{formatCurrency(Number(item.price)*item.quantity)}</Text></View></View>)}
+    {cart.length ? <><Text style={styles.section}>Customer</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}>{customers.map((customer)=><TouchableOpacity key={customer.id} onPress={()=>setCustomerId(customer.id)} style={[styles.chip,customerId===customer.id&&styles.chipActive]}><Text style={[styles.chipText,customerId===customer.id&&styles.chipTextActive]}>{customer.name}</Text></TouchableOpacity>)}</ScrollView>
+    <View style={styles.summary}><Row label="Subtotal" value={formatCurrency(bill.subtotal)}/><Row label={`GST ${bill.gstRate}%`} value={formatCurrency(bill.gst)}/><View style={styles.discountRow}><Text style={styles.rowLabel}>Discount ₹</Text><TextInput value={discount} onChangeText={setDiscount} keyboardType="decimal-pad" placeholder="0" style={styles.discountInput}/></View><View style={styles.line}/><Row label="Grand Total" value={formatCurrency(bill.total)} bold/></View>
+    <Text style={styles.section}>Payment Method</Text><View style={styles.paymentRow}>{['Cash','UPI','Card'].map((item)=><TouchableOpacity key={item} onPress={()=>setPayment(item)} style={[styles.payment,payment===item&&styles.paymentActive]}><Text style={[styles.paymentText,payment===item&&styles.paymentTextActive]}>{item}</Text></TouchableOpacity>)}</View><TouchableOpacity style={styles.generate} onPress={goToReceipt}><Text style={styles.generateText}>Review & Generate Bill</Text></TouchableOpacity></>:null}
+  </ScrollView></View>;
+}
+function Row({label,value,bold}){return <View style={styles.row}><Text style={[styles.rowLabel,bold&&styles.bold]}>{label}</Text><Text style={[styles.rowValue,bold&&styles.total]}>{value}</Text></View>}
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#F8FAFC'},header:{paddingTop:44,paddingHorizontal:20,paddingBottom:16,flexDirection:'row',alignItems:'center'},back:{width:44,height:44,borderRadius:16,backgroundColor:'#FFF',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#E2E8F0',marginRight:14},title:{fontSize:28,fontWeight:'900',color:'#0F172A'},content:{padding:20,paddingBottom:50},item:{backgroundColor:'#FFF',borderRadius:22,padding:16,borderWidth:1,borderColor:'#E2E8F0',marginBottom:12},itemTop:{flexDirection:'row',alignItems:'center'},flex:{flex:1},itemName:{fontSize:16,fontWeight:'900',color:'#0F172A'},muted:{marginTop:5,color:'#64748B',fontWeight:'600'},itemBottom:{marginTop:16,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},qty:{flexDirection:'row',alignItems:'center',backgroundColor:'#F8FAFC',borderRadius:14,padding:4},qtyBtn:{width:34,height:34,borderRadius:12,backgroundColor:'#FFF',alignItems:'center',justifyContent:'center'},qtyText:{minWidth:34,textAlign:'center',fontWeight:'900'},itemTotal:{fontSize:18,fontWeight:'900',color:'#0A46E4'},section:{marginTop:22,marginBottom:12,fontSize:18,fontWeight:'900',color:'#0F172A'},chip:{borderRadius:999,borderWidth:1,borderColor:'#E2E8F0',backgroundColor:'#FFF',paddingHorizontal:15,paddingVertical:10,marginRight:9},chipActive:{backgroundColor:'#0A46E4',borderColor:'#0A46E4'},chipText:{color:'#64748B',fontWeight:'800'},chipTextActive:{color:'#FFF'},summary:{backgroundColor:'#FFF',borderRadius:24,padding:18,borderWidth:1,borderColor:'#E2E8F0',marginTop:20},row:{flexDirection:'row',justifyContent:'space-between',marginBottom:12},rowLabel:{color:'#64748B',fontWeight:'700'},rowValue:{color:'#0F172A',fontWeight:'800'},bold:{color:'#0F172A',fontSize:16},total:{color:'#0A46E4',fontSize:20,fontWeight:'900'},discountRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:12},discountInput:{height:38,width:100,borderRadius:12,borderWidth:1,borderColor:'#E2E8F0',textAlign:'right',paddingHorizontal:10},line:{height:1,backgroundColor:'#E2E8F0',marginVertical:8},paymentRow:{flexDirection:'row',gap:10},payment:{flex:1,height:48,borderRadius:16,backgroundColor:'#FFF',borderWidth:1,borderColor:'#E2E8F0',alignItems:'center',justifyContent:'center'},paymentActive:{backgroundColor:'#0A46E4',borderColor:'#0A46E4'},paymentText:{fontWeight:'900',color:'#64748B'},paymentTextActive:{color:'#FFF'},generate:{height:56,borderRadius:18,backgroundColor:'#0F172A',alignItems:'center',justifyContent:'center',marginTop:22},generateText:{color:'#FFF',fontWeight:'900'},empty:{marginTop:120,alignItems:'center'},emptyTitle:{marginTop:12,fontSize:20,fontWeight:'900',color:'#0F172A'}});
