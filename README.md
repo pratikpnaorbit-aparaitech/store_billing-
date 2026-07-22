@@ -1,6 +1,6 @@
 # Smart Billing
 
-Production-oriented Expo SDK 57 billing app for stores. It includes account authentication, tenant-isolated products/customers/orders, barcode scanning, stock-aware cart billing, GST and discounts, PDF receipts, password recovery, reports, and offline read-only cache when the cloud API is temporarily unavailable.
+Production-oriented Expo SDK 57 billing app for stores. It includes email-OTP account verification, account authentication, tenant-isolated products/customers/orders, barcode scanning, stock-aware cart billing, GST and discounts, PDF receipts, OTP password recovery, reports, and offline read-only cache when the cloud API is temporarily unavailable.
 
 ## Local development
 
@@ -62,3 +62,4 @@ Follow [DEPLOYMENT.md](./DEPLOYMENT.md) in order. Do not build the company APK b
 - Product barcodes and invoice numbers are unique per account.
 - A successful cloud invoice clears the cart only after the server transaction succeeds.
 - If the API is unreachable, cached company data remains visible but cloud writes fail safely instead of creating unsynced records.
+- Cloud registration creates an account only after the 6 digit email code is verified. Registration and password-reset codes expire after 15 minutes.

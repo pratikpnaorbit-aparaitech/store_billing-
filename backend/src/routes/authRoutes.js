@@ -1,7 +1,8 @@
 const router = require("express").Router();
-const { register, login, me, updateProfile, changePassword, requestPasswordReset, resetPasswordWithCode } = require("../controllers/authController");
+const { requestRegistration, verifyRegistration, login, me, updateProfile, changePassword, requestPasswordReset, resetPasswordWithCode } = require("../controllers/authController");
 const requireAuth = require("../middleware/auth");
-router.post("/register", register);
+router.post("/register/request", requestRegistration);
+router.post("/register/verify", verifyRegistration);
 router.post("/login", login);
 router.get("/me", requireAuth, me);
 router.put("/profile", requireAuth, updateProfile);

@@ -16,6 +16,7 @@ Audit date: 22 July 2026
 - Connected read-only to the shared `all_in_one_services` database, verified 32 bcrypt-based ServiceHub accounts, and made the billing auth model compatible with the existing `users.password` field.
 - Split persistence into two databases: existing ServiceHub `all_in_one_services.users` for shared authentication, and separate `smart_billing` for all billing-owned collections.
 - Added Brevo transactional-email API support and verified the supplied API key plus one real test reset-code email.
+- Rebuilt authentication as two complete OTP flows: registration request/verify/login and forgot-password request/verify/reset/login, with resend, confirmation fields, success state, and longer email-request timeout.
 
 ## Verification results
 
@@ -25,6 +26,7 @@ Audit date: 22 July 2026
 - App billing/stock/analytics tests: 6/6 passed.
 - Backend calculation/API/security/environment tests: 10/10 passed.
 - Backend production dependency audit: 0 vulnerabilities.
+- Live controlled auth-chain verification: registration request 200, verification 201, initial login 200, password reset 200, old password rejected, new password login 200; temporary test account removed.
 - Root audit reports 11 moderate advisories through Expo CLI → xcode → uuid. npm's automated suggestion downgrades Expo to SDK 46, so it was rejected as incompatible. This is build tooling and should be monitored with Expo SDK 57 updates.
 
 ## External deployment blockers found

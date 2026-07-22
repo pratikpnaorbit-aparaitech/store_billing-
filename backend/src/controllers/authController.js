@@ -2,30 +2,86 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const User = require("../models/User");
-const { sendPasswordResetCode } = require("../config/mailer");
+const PendingRegistration = require("../models/PendingRegistration");
+const { sendPasswordResetCode, sendRegistrationCode } = require("../config/mailer");
 
 const publicUser = (user) => ({
   id: user._id,
   name: user.name,
   storeName: user.storeName || user.name || "My Store",
   email: user.email,
+  phone: user.phone || "",
 });
 const tokenFor = (user) => jwt.sign({ sub: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: "7d", issuer: "smart-billing-api" });
 
-exports.register = async (req, res) => {
+const hashCode = (code) => crypto.createHash("sha256").update(String(code)).digest("hex");
+
+exports.requestRegistration = async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
     const storeName = String(req.body.storeName || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
+    const phone = String(req.body.phone || "").replace(/[\s()-]/g, "");
     const password = String(req.body.password || "");
-    if (!name || !storeName || !/^\S+@\S+\.\S+$/.test(email) || password.length < 8) {
-      return res.status(400).json({ success: false, message: "Name, store, valid email and an 8 character password are required" });
+    if (!name || !storeName || !/^\S+@\S+\.\S+$/.test(email) || !/^\+?\d{10,15}$/.test(phone) || password.length < 8) {
+      return res.status(400).json({ success: false, message: "Name, store, valid email, mobile number and an 8 character password are required" });
     }
-    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) throw new Error("JWT_SECRET must have at least 32 characters");
-    const user = await User.create({ name, storeName, email, password: await bcrypt.hash(password, 12), role: "user" });
+    if (await User.exists({ email })) return res.status(409).json({ success: false, message: "Email already registered. Log in or reset your password." });
+    const code = String(crypto.randomInt(100000, 1000000));
+    await PendingRegistration.findOneAndUpdate(
+      { email },
+      {
+        email,
+        name,
+        storeName,
+        phone,
+        passwordHash: await bcrypt.hash(password, 12),
+        codeHash: hashCode(code),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      },
+      { upsert: true, new: true, runValidators: true },
+    );
+    try {
+      await sendRegistrationCode(email, code);
+    } catch (error) {
+      await PendingRegistration.deleteOne({ email });
+      throw error;
+    }
+    res.json({ success: true, message: "Verification code sent" });
+  } catch (error) {
+    res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Email already registered" : error.message });
+  }
+};
+
+exports.verifyRegistration = async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const code = String(req.body.code || "").trim();
+    if (!/^\S+@\S+\.\S+$/.test(email) || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({ success: false, message: "Enter the email and 6 digit verification code" });
+    }
+    const pending = await PendingRegistration.findOne({
+      email,
+      codeHash: hashCode(code),
+      expiresAt: { $gt: new Date() },
+    }).select("+passwordHash +codeHash");
+    if (!pending) return res.status(400).json({ success: false, message: "Verification code is invalid or expired" });
+    if (await User.exists({ email })) {
+      await PendingRegistration.deleteOne({ email });
+      return res.status(409).json({ success: false, message: "Email already registered. Log in instead." });
+    }
+    const user = await User.create({
+      name: pending.name,
+      storeName: pending.storeName,
+      phone: pending.phone,
+      email: pending.email,
+      password: pending.passwordHash,
+      role: "user",
+    });
+    await PendingRegistration.deleteOne({ _id: pending._id });
     res.status(201).json({ success: true, data: { user: publicUser(user), token: tokenFor(user) } });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.code === 11000 ? "Email already registered" : error.message });
+    res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Email already registered" : error.message });
   }
 };
 
@@ -72,7 +128,7 @@ exports.requestPasswordReset = async (req, res) => {
   if (!user) return res.json({ success: true, message: "If the account exists, a reset code was sent" });
   try {
     const code = String(crypto.randomInt(100000, 1000000));
-    user.passwordResetHash = crypto.createHash("sha256").update(code).digest("hex");
+    user.passwordResetHash = hashCode(code);
     user.passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000);
     await user.save();
     await sendPasswordResetCode(user.email, code);
@@ -87,10 +143,11 @@ exports.requestPasswordReset = async (req, res) => {
 
 exports.resetPasswordWithCode = async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
-  const codeHash = crypto.createHash("sha256").update(String(req.body.code || "")).digest("hex");
+  const code = String(req.body.code || "").trim();
   const newPassword = String(req.body.newPassword || "");
+  if (!/^\d{6}$/.test(code)) return res.status(400).json({ success: false, message: "Enter a valid 6 digit reset code" });
   if (newPassword.length < 8) return res.status(400).json({ success: false, message: "New password must have at least 8 characters" });
-  const user = await User.findOne({ email, passwordResetHash: codeHash, passwordResetExpires: { $gt: new Date() } }).select("+password +passwordResetHash +passwordResetExpires");
+  const user = await User.findOne({ email, passwordResetHash: hashCode(code), passwordResetExpires: { $gt: new Date() } }).select("+password +passwordResetHash +passwordResetExpires");
   if (!user) return res.status(400).json({ success: false, message: "Reset code is invalid or expired" });
   user.password = await bcrypt.hash(newPassword, 12);
   user.passwordResetHash = null;

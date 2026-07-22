@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { hasRemoteApi, setApiToken } from "../services/api";
-import { changeAccountPassword, fetchCurrentUser, loginAccount, registerAccount, requestPasswordReset, resetPasswordWithCode, updateAccountProfile } from "../services/authApi";
+import { changeAccountPassword, fetchCurrentUser, loginAccount, requestRegistrationCode, verifyRegistrationCode, requestPasswordReset, resetPasswordWithCode, updateAccountProfile } from "../services/authApi";
 import { clearBusinessData } from "../utils/storage";
 
 const AUTH_KEY = "SMART_BILLING_AUTH";
@@ -54,19 +54,40 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  register: async ({ name, email, password, storeName }) => {
-    const payload = { name: name.trim(), email: email.trim().toLowerCase(), password, storeName: storeName.trim() || "My Store" };
-    if (hasRemoteApi) {
-      const { user, token } = await registerAccount(payload);
-      setApiToken(token);
-      await setAuthData({ user, token, session: true, mode: "cloud" });
-      set({ user, ready: true, connectionStatus: "online" });
-      return user;
-    }
+  register: async ({ name, email, phone, password, storeName }) => {
+    const payload = { name: name.trim(), email: email.trim().toLowerCase(), phone: phone?.trim() || "", password, storeName: storeName.trim() || "My Store" };
+    if (hasRemoteApi) throw new Error("Email verification is required for cloud registration.");
     const user = { name: payload.name, email: payload.email, storeName: payload.storeName };
     await setAuthData({ user, credentials: { email: payload.email, password }, session: true, mode: "local" });
     set({ user, ready: true, connectionStatus: "offline" });
     return user;
+  },
+
+  requestRegistration: async (details) => {
+    const payload = {
+      name: details.name.trim(),
+      storeName: details.storeName.trim(),
+      email: details.email.trim().toLowerCase(),
+      phone: details.phone.trim(),
+      password: details.password,
+    };
+    if (!hasRemoteApi) {
+      try { await get().register(payload); return { ok: true, local: true }; }
+      catch (error) { return { ok: false, message: error.message }; }
+    }
+    try { await requestRegistrationCode(payload); return { ok: true, email: payload.email }; }
+    catch (error) { return { ok: false, message: error.message }; }
+  },
+
+  verifyRegistration: async (email, code) => {
+    if (!hasRemoteApi) return { ok: true };
+    try {
+      const { user, token } = await verifyRegistrationCode(email.trim().toLowerCase(), code);
+      setApiToken(token);
+      await setAuthData({ user, token, session: true, mode: "cloud" });
+      set({ user, ready: true, connectionStatus: "online" });
+      return { ok: true, user };
+    } catch (error) { return { ok: false, message: error.message }; }
   },
 
   login: async (email, password) => {

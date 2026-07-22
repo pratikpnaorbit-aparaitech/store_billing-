@@ -42,10 +42,17 @@ test("protects company data routes and sends security headers", () => withServer
 }));
 
 test("validates registration before accessing the database", () => withServer(async (origin) => {
-  const response = await fetch(`${origin}/api/auth/register`, {
+  const response = await fetch(`${origin}/api/auth/register/request`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email: "not-an-email", password: "short" }),
   });
   assert.equal(response.status, 400);
+
+  const verification = await fetch(`${origin}/api/auth/register/verify`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "user@example.com", code: "12" }),
+  });
+  assert.equal(verification.status, 400);
 }));
