@@ -146,10 +146,12 @@ export const useAuthStore = create((set, get) => ({
   logout: async () => {
     const saved = await getAuthData();
     setApiToken(null);
-    if (hasRemoteApi) await removeAuthData();
-    else if (saved) await setAuthData({ ...saved, session: false });
-    if (hasRemoteApi) await clearBusinessData();
-    set({ user: null });
+    set({ user: null, connectionStatus: hasRemoteApi ? "pending" : "offline" });
+    if (hasRemoteApi) {
+      await Promise.allSettled([removeAuthData(), clearBusinessData()]);
+    } else if (saved) {
+      await Promise.allSettled([setAuthData({ ...saved, session: false })]);
+    }
   },
 
   deleteAccount: async () => {

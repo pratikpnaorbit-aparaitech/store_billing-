@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
@@ -18,6 +18,8 @@ export default function ProfileScreen({ navigation }) {
   const [gstRate, setGstRate] = useState(String(settings.gstRate));
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showLogout, setShowLogout] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const save = async () => {
     if (!name.trim() || !storeName.trim()) return Alert.alert("Missing details", "Name and store name are required.");
@@ -36,10 +38,17 @@ export default function ProfileScreen({ navigation }) {
     setCurrentPassword(""); setNewPassword(""); Alert.alert("Password changed", "Your company account password was updated.");
   };
 
-  const signOut = () => Alert.alert("Log out?", "You can sign in again on this device.", [
-    { text: "Cancel", style: "cancel" },
-    { text: "Log out", style: "destructive", onPress: async () => { await logout(); navigation.getParent()?.reset({ index: 0, routes: [{ name: "Login" }] }); } },
-  ]);
+  const signOut = () => setShowLogout(true);
+
+  const confirmSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    await logout();
+    setShowLogout(false);
+    const rootNavigation = navigation.getParent();
+    if (rootNavigation) rootNavigation.reset({ index: 0, routes: [{ name: "Login" }] });
+    setSigningOut(false);
+  };
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
     <Text style={styles.title}>Profile & Settings</Text><Text style={styles.subtitle}>Store identity and billing preferences</Text>
@@ -51,7 +60,20 @@ export default function ProfileScreen({ navigation }) {
     {cloudMode ? <View style={styles.passwordCard}><Text style={styles.passwordTitle}>Change Password</Text><TextInput value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry placeholder="Current password" style={styles.input} /><TextInput value={newPassword} onChangeText={setNewPassword} secureTextEntry placeholder="New password (8+ characters)" style={styles.input} /><TouchableOpacity style={styles.passwordButton} onPress={updatePassword}><Text style={styles.passwordButtonText}>Update Password</Text></TouchableOpacity></View> : null}
     <TouchableOpacity style={styles.logout} onPress={signOut}><Ionicons name="log-out-outline" size={20} color="#DC2626" /><Text style={styles.logoutText}>Log out</Text></TouchableOpacity>
     <Text style={styles.note}>{cloudMode ? "Company data is secured in the cloud. Cached business data is cleared when you log out." : "Products, orders and customers are stored on this device and remain available offline."}</Text>
+    <Modal visible={showLogout} transparent animationType="fade" onRequestClose={() => !signingOut && setShowLogout(false)}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalIcon}><Ionicons name="log-out-outline" size={28} color="#DC2626" /></View>
+          <Text style={styles.modalTitle}>Log out?</Text>
+          <Text style={styles.modalText}>Your cached company data will be cleared from this device. You can sign in again anytime.</Text>
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setShowLogout(false)} disabled={signingOut}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.confirmButton} onPress={confirmSignOut} disabled={signingOut}><Text style={styles.confirmText}>{signingOut ? "Logging out..." : "Log out"}</Text></TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   </ScrollView>;
 }
 
-const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#F8FAFC'},content:{padding:22,paddingTop:48,paddingBottom:120},title:{fontSize:30,fontWeight:'900',color:'#0F172A'},subtitle:{color:'#64748B',marginTop:6,marginBottom:12},status:{alignSelf:'flex-start',borderRadius:999,paddingHorizontal:12,paddingVertical:7,marginBottom:20},statusOnline:{backgroundColor:'#DCFCE7'},statusOffline:{backgroundColor:'#FEF3C7'},statusText:{fontSize:12,fontWeight:'900',color:'#334155'},avatar:{width:72,height:72,borderRadius:24,backgroundColor:'#EAF1FF',alignItems:'center',justifyContent:'center',marginBottom:24},avatarText:{fontSize:28,fontWeight:'900',color:'#0A46E4'},label:{fontSize:13,fontWeight:'800',color:'#0F172A',marginBottom:8},input:{height:54,borderRadius:17,backgroundColor:'#FFF',borderWidth:1,borderColor:'#E2E8F0',paddingHorizontal:16,marginBottom:17},readOnly:{height:54,borderRadius:17,backgroundColor:'#E2E8F0',paddingHorizontal:16,flexDirection:'row',alignItems:'center',gap:10},readOnlyText:{color:'#475569',fontWeight:'700'},save:{height:56,borderRadius:18,backgroundColor:'#0A46E4',alignItems:'center',justifyContent:'center',marginTop:24},saveText:{color:'#FFF',fontWeight:'900'},passwordCard:{backgroundColor:'#FFF',borderRadius:22,padding:18,borderWidth:1,borderColor:'#E2E8F0',marginTop:18},passwordTitle:{fontSize:17,fontWeight:'900',color:'#0F172A',marginBottom:16},passwordButton:{height:50,borderRadius:16,backgroundColor:'#0F172A',alignItems:'center',justifyContent:'center'},passwordButtonText:{color:'#FFF',fontWeight:'900'},logout:{height:54,borderRadius:18,borderWidth:1,borderColor:'#FECACA',backgroundColor:'#FFF',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8,marginTop:12},logoutText:{color:'#DC2626',fontWeight:'900'},note:{textAlign:'center',color:'#94A3B8',fontSize:12,lineHeight:18,marginTop:20}});
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#F8FAFC'},content:{padding:22,paddingTop:48,paddingBottom:120},title:{fontSize:30,fontWeight:'900',color:'#0F172A'},subtitle:{color:'#64748B',marginTop:6,marginBottom:12},status:{alignSelf:'flex-start',borderRadius:999,paddingHorizontal:12,paddingVertical:7,marginBottom:20},statusOnline:{backgroundColor:'#DCFCE7'},statusOffline:{backgroundColor:'#FEF3C7'},statusText:{fontSize:12,fontWeight:'900',color:'#334155'},avatar:{width:72,height:72,borderRadius:24,backgroundColor:'#EAF1FF',alignItems:'center',justifyContent:'center',marginBottom:24},avatarText:{fontSize:28,fontWeight:'900',color:'#0A46E4'},label:{fontSize:13,fontWeight:'800',color:'#0F172A',marginBottom:8},input:{height:54,borderRadius:17,backgroundColor:'#FFF',borderWidth:1,borderColor:'#E2E8F0',paddingHorizontal:16,marginBottom:17},readOnly:{height:54,borderRadius:17,backgroundColor:'#E2E8F0',paddingHorizontal:16,flexDirection:'row',alignItems:'center',gap:10},readOnlyText:{color:'#475569',fontWeight:'700'},save:{height:56,borderRadius:18,backgroundColor:'#0A46E4',alignItems:'center',justifyContent:'center',marginTop:24},saveText:{color:'#FFF',fontWeight:'900'},passwordCard:{backgroundColor:'#FFF',borderRadius:22,padding:18,borderWidth:1,borderColor:'#E2E8F0',marginTop:18},passwordTitle:{fontSize:17,fontWeight:'900',color:'#0F172A',marginBottom:16},passwordButton:{height:50,borderRadius:16,backgroundColor:'#0F172A',alignItems:'center',justifyContent:'center'},passwordButtonText:{color:'#FFF',fontWeight:'900'},logout:{height:54,borderRadius:18,borderWidth:1,borderColor:'#FECACA',backgroundColor:'#FFF',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8,marginTop:12},logoutText:{color:'#DC2626',fontWeight:'900'},note:{textAlign:'center',color:'#94A3B8',fontSize:12,lineHeight:18,marginTop:20},modalBackdrop:{flex:1,backgroundColor:'rgba(15,23,42,0.55)',alignItems:'center',justifyContent:'center',padding:24},modalCard:{width:'100%',maxWidth:420,backgroundColor:'#FFF',borderRadius:26,padding:24,alignItems:'center'},modalIcon:{width:58,height:58,borderRadius:20,backgroundColor:'#FEF2F2',alignItems:'center',justifyContent:'center'},modalTitle:{fontSize:23,fontWeight:'900',color:'#0F172A',marginTop:16},modalText:{color:'#64748B',textAlign:'center',lineHeight:20,marginTop:8},modalActions:{flexDirection:'row',gap:12,marginTop:24,width:'100%'},cancelButton:{flex:1,height:52,borderRadius:16,borderWidth:1,borderColor:'#E2E8F0',alignItems:'center',justifyContent:'center'},cancelText:{fontWeight:'900',color:'#334155'},confirmButton:{flex:1,height:52,borderRadius:16,backgroundColor:'#DC2626',alignItems:'center',justifyContent:'center'},confirmText:{fontWeight:'900',color:'#FFF'}});
