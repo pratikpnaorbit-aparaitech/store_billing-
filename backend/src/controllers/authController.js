@@ -26,7 +26,7 @@ exports.requestRegistration = async (req, res) => {
     if (!name || !storeName || !/^\S+@\S+\.\S+$/.test(email) || !/^\+?\d{10,15}$/.test(phone) || password.length < 8) {
       return res.status(400).json({ success: false, message: "Name, store, valid email, mobile number and an 8 character password are required" });
     }
-    if (await User.exists({ email })) return res.status(409).json({ success: false, message: "Email already registered. Log in or reset your password." });
+    if (await User.exists({ email })) return res.status(409).json({ success: false, code: "ACCOUNT_EXISTS", message: "Email already registered. Log in or reset your password." });
     const code = String(crypto.randomInt(100000, 1000000));
     await PendingRegistration.findOneAndUpdate(
       { email },
@@ -49,7 +49,7 @@ exports.requestRegistration = async (req, res) => {
     }
     res.json({ success: true, message: "Verification code sent" });
   } catch (error) {
-    res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Email already registered" : error.message });
+    res.status(error.code === 11000 ? 409 : 400).json({ success: false, code: error.code === 11000 ? "ACCOUNT_EXISTS" : "REGISTRATION_FAILED", message: error.code === 11000 ? "Email already registered" : error.message });
   }
 };
 
@@ -68,7 +68,7 @@ exports.verifyRegistration = async (req, res) => {
     if (!pending) return res.status(400).json({ success: false, message: "Verification code is invalid or expired" });
     if (await User.exists({ email })) {
       await PendingRegistration.deleteOne({ email });
-      return res.status(409).json({ success: false, message: "Email already registered. Log in instead." });
+      return res.status(409).json({ success: false, code: "ACCOUNT_EXISTS", message: "Email already registered. Log in instead." });
     }
     const user = await User.create({
       name: pending.name,
@@ -81,7 +81,7 @@ exports.verifyRegistration = async (req, res) => {
     await PendingRegistration.deleteOne({ _id: pending._id });
     res.status(201).json({ success: true, data: { user: publicUser(user), token: tokenFor(user) } });
   } catch (error) {
-    res.status(error.code === 11000 ? 409 : 400).json({ success: false, message: error.code === 11000 ? "Email already registered" : error.message });
+    res.status(error.code === 11000 ? 409 : 400).json({ success: false, code: error.code === 11000 ? "ACCOUNT_EXISTS" : "VERIFICATION_FAILED", message: error.code === 11000 ? "Email already registered" : error.message });
   }
 };
 

@@ -11,9 +11,13 @@ export default function SignUpScreen({ navigation }) {
   const [form, setForm] = useState({ name: "", storeName: "", email: "", phone: "", password: "", confirm: "" });
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState(null);
+  const [accountExists, setAccountExists] = useState(false);
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   const sendCode = async () => {
+    setFormError(null);
+    setAccountExists(false);
     const phone = form.phone.replace(/[\s()-]/g, "");
     if (!form.name.trim() || !form.storeName.trim() || !/^\S+@\S+\.\S+$/.test(form.email.trim()) || !/^\+?\d{10,15}$/.test(phone) || form.password.length < 8) {
       Alert.alert("Check details", "Name, store name, valid email, 10–15 digit mobile number and a password of at least 8 characters are required.");
@@ -26,7 +30,11 @@ export default function SignUpScreen({ navigation }) {
     setBusy(true);
     const result = await requestRegistration(form);
     setBusy(false);
-    if (!result.ok) return Alert.alert("Code could not be sent", result.message);
+    if (!result.ok) {
+      setFormError(result.message);
+      setAccountExists(result.code === "ACCOUNT_EXISTS" || result.status === 409);
+      return;
+    }
     if (result.local) {
       navigation.reset({ index: 0, routes: [{ name: "Main" }] });
       return;
@@ -58,6 +66,8 @@ export default function SignUpScreen({ navigation }) {
             {[["Your name", "name", "default"], ["Store name", "storeName", "default"], ["Email", "email", "email-address"], ["Mobile number", "phone", "phone-pad"], ["Password", "password", "default"], ["Confirm password", "confirm", "default"]].map(([label, key, keyboard]) => (
               <View key={key}><Text style={styles.label}>{label}</Text><TextInput value={form[key]} onChangeText={(value) => setField(key, value)} keyboardType={keyboard} autoCapitalize={key === "email" ? "none" : "words"} secureTextEntry={key === "password" || key === "confirm"} style={styles.input} placeholder={label} /></View>
             ))}
+            {formError ? <View style={styles.errorBox}><Ionicons name={accountExists ? "person-circle-outline" : "alert-circle-outline"} size={24} color="#B91C1C" /><View style={styles.errorContent}><Text style={styles.errorTitle}>{accountExists ? "Account already exists" : "Registration could not continue"}</Text><Text style={styles.errorText}>{formError}</Text></View></View> : null}
+            {accountExists ? <View style={styles.existingActions}><TouchableOpacity style={styles.loginButton} onPress={() => navigation.replace("Login", { email: form.email.trim().toLowerCase() })}><Text style={styles.loginButtonText}>GO TO LOGIN</Text></TouchableOpacity><TouchableOpacity style={styles.resetButton} onPress={() => navigation.navigate("ForgotPassword", { email: form.email.trim().toLowerCase() })}><Text style={styles.resetButtonText}>RESET PASSWORD</Text></TouchableOpacity></View> : null}
             <TouchableOpacity style={styles.button} onPress={sendCode} disabled={busy}><Text style={styles.buttonText}>{busy ? "SENDING CODE..." : cloudMode ? "SEND VERIFICATION CODE" : "CREATE ACCOUNT"}</Text></TouchableOpacity>
           </>
         ) : (
@@ -82,5 +92,5 @@ const styles = StyleSheet.create({
   input: { height: 56, borderRadius: 18, backgroundColor: "#FFF", borderWidth: 1, borderColor: "#E2E8F0", paddingHorizontal: 16, marginBottom: 16, fontSize: 15 }, code: { fontSize: 24, fontWeight: "900", letterSpacing: 8, textAlign: "center" },
   button: { minHeight: 56, borderRadius: 18, backgroundColor: "#0A46E4", alignItems: "center", justifyContent: "center", marginTop: 12, paddingHorizontal: 12 }, buttonText: { color: "#FFF", fontWeight: "900", textAlign: "center" },
   notice: { padding: 18, borderRadius: 18, backgroundColor: "#EAF1FF", flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 }, noticeText: { flex: 1, color: "#334155", lineHeight: 20, fontWeight: "700" },
-  link: { textAlign: "center", color: "#0A46E4", fontWeight: "900", marginTop: 22 }, mutedLink: { textAlign: "center", color: "#64748B", fontWeight: "800", marginTop: 16 },
+  link: { textAlign: "center", color: "#0A46E4", fontWeight: "900", marginTop: 22 }, mutedLink: { textAlign: "center", color: "#64748B", fontWeight: "800", marginTop: 16 }, errorBox: { flexDirection: "row", gap: 10, padding: 14, borderRadius: 16, backgroundColor: "#FEF2F2", borderWidth: 1, borderColor: "#FECACA", marginTop: 4 }, errorContent: { flex: 1 }, errorTitle: { color: "#991B1B", fontWeight: "900" }, errorText: { color: "#B91C1C", marginTop: 3, lineHeight: 18 }, existingActions: { flexDirection: "row", gap: 10, marginTop: 12 }, loginButton: { flex: 1, minHeight: 48, borderRadius: 15, backgroundColor: "#0F172A", alignItems: "center", justifyContent: "center", paddingHorizontal: 8 }, loginButtonText: { color: "#FFF", fontWeight: "900", fontSize: 12, textAlign: "center" }, resetButton: { flex: 1, minHeight: 48, borderRadius: 15, backgroundColor: "#FFF", borderWidth: 1, borderColor: "#0A46E4", alignItems: "center", justifyContent: "center", paddingHorizontal: 8 }, resetButtonText: { color: "#0A46E4", fontWeight: "900", fontSize: 12, textAlign: "center" },
 });

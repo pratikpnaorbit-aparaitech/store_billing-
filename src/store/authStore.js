@@ -76,7 +76,7 @@ export const useAuthStore = create((set, get) => ({
       catch (error) { return { ok: false, message: error.message }; }
     }
     try { await requestRegistrationCode(payload); return { ok: true, email: payload.email }; }
-    catch (error) { return { ok: false, message: error.message }; }
+    catch (error) { return { ok: false, message: error.message, status: error.status, code: error.code }; }
   },
 
   verifyRegistration: async (email, code) => {

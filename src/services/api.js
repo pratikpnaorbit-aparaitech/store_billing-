@@ -26,6 +26,7 @@ api.interceptors.response.use(
     const message = error.response?.data?.message || error.message || "Network request failed";
     const normalized = new Error(message);
     normalized.status = error.response?.status;
+    normalized.code = error.response?.data?.code;
     return Promise.reject(normalized);
   },
 );

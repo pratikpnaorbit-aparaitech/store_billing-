@@ -3,13 +3,13 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 
-export default function ForgotPasswordScreen({ navigation }) {
+export default function ForgotPasswordScreen({ navigation, route }) {
   const cloudMode = useAuthStore((state) => state.cloudMode);
   const requestPasswordReset = useAuthStore((state) => state.requestPasswordReset);
   const completePasswordReset = useAuthStore((state) => state.completePasswordReset);
   const resetPassword = useAuthStore((state) => state.resetPassword);
   const [step, setStep] = useState("request");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(route?.params?.email || "");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
