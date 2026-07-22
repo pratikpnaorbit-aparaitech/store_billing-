@@ -13,6 +13,7 @@ const productionEnv = {
   SMTP_HOST: "smtp.example.com",
   SMTP_USER: "user",
   SMTP_PASS: "pass",
+  BREVO_API_KEY: "brevo-key",
   EMAIL_FROM: "billing@example.com",
 };
 
@@ -26,5 +27,5 @@ test("rejects wildcard CORS and localhost databases in production", () => {
 });
 
 test("requires every production integration", () => {
-  assert.throws(() => validateEnv({ ...productionEnv, SMTP_PASS: "" }), /SMTP_PASS/);
+  assert.throws(() => validateEnv({ ...productionEnv, BREVO_API_KEY: "", SMTP_HOST: "", SMTP_USER: "", SMTP_PASS: "" }), /BREVO_API_KEY/);
 });

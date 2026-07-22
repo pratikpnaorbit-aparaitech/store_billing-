@@ -30,6 +30,8 @@ npm start
 
 Production startup validates MongoDB, JWT, CORS, Cloudinary, and SMTP configuration before accepting traffic. All business routes require a JWT and every query is scoped to the authenticated account.
 
+For the ServiceHub integration, the existing `users` collection is shared and uses its bcrypt `password` field. Billing-owned data uses `billing_products`, `billing_customers`, and `billing_orders` collections to avoid collisions with current or future ServiceHub website collections. Brevo API email is supported directly through `BREVO_API_KEY`; SMTP remains an alternative.
+
 ## Verification
 
 ```bash

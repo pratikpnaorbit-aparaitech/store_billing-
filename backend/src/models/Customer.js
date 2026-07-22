@@ -14,4 +14,4 @@ CustomerSchema.index(
   { unique: true, partialFilterExpression: { phone: { $type: "string", $gt: "" } } },
 );
 
-module.exports = mongoose.model("Customer", CustomerSchema);
+module.exports = mongoose.model("Customer", CustomerSchema, "billing_customers");

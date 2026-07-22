@@ -26,4 +26,4 @@ const OrderSchema = new mongoose.Schema({
 OrderSchema.index({ owner: 1, invoiceNo: 1 }, { unique: true });
 OrderSchema.index({ owner: 1, createdAt: -1 });
 
-module.exports = mongoose.model("Order", OrderSchema);
+module.exports = mongoose.model("Order", OrderSchema, "billing_orders");

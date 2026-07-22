@@ -10,7 +10,7 @@ Before the first store build, confirm that `com.smartbilling.scanner` is owned b
 
 1. Push this repository to the company Git host.
 2. In Render, create a Blueprint from the root `render.yaml`.
-3. Enter every `sync: false` value when prompted: `MONGODB_URI`, `CORS_ORIGINS`, Cloudinary credentials, and SMTP credentials. Render generates `JWT_SECRET`.
+3. Enter every `sync: false` value when prompted: `MONGODB_URI`, `CORS_ORIGINS`, Cloudinary credentials, and either `BREVO_API_KEY` or SMTP credentials. Render generates `JWT_SECRET`.
 4. Confirm the deploy is healthy at `https://YOUR-SERVICE.onrender.com/health`; `database` must be `connected`.
 5. Keep MongoDB network access restricted as far as the hosting architecture allows and enable database backups.
 

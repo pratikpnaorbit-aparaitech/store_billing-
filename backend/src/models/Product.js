@@ -65,4 +65,4 @@ const ProductSchema = new mongoose.Schema(
 ProductSchema.index({ owner: 1, barcode: 1 }, { unique: true });
 ProductSchema.index({ owner: 1, active: 1, createdAt: -1 });
 
-module.exports = mongoose.model("Product", ProductSchema);
+module.exports = mongoose.model("Product", ProductSchema, "billing_products");
