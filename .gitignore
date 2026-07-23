@@ -7,6 +7,8 @@ node_modules/
 .expo/
 dist/
 web-build/
+web-dist/
+native-dist/
 expo-env.d.ts
 
 # Native
@@ -25,12 +27,17 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+.expo-web*.log
+.backend-runtime*.log
 
 # macOS
 .DS_Store
 *.pem
 
 # local env files
+.env
+.env.*
+!.env.example
 .env*.local
 
 # typescript

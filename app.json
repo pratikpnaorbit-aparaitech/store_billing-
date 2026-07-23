@@ -1,15 +1,20 @@
 {
   "expo": {
-    "name": "SmartBillingScanner",
-    "slug": "SmartBillingScanner",
+    "name": "Smart Billing",
+    "slug": "smart-billing-scanner",
     "version": "1.0.0",
+    "scheme": "smartbilling",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartbilling.scanner"
     },
     "android": {
+      "package": "com.smartbilling.scanner",
+      "versionCode": 1,
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -21,9 +26,26 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-barcode-scanner",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Smart Billing to use the camera for barcode scanning.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow Smart Billing to select product photos.",
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store",
       "expo-sharing"
-    ]
+    ],
+    "extra": {
+      "supportsOfflineMode": true
+    }
   }
 }

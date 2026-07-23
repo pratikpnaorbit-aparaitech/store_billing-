@@ -28,7 +28,7 @@ export default function ProductListScreen({ navigation }) {
 
       return matchesCategory && matchesSearch;
     });
-  }, [search, activeCategory]);
+  }, [search, activeCategory, products]);
 
   return (
     <View style={styles.screen}>
@@ -64,7 +64,7 @@ export default function ProductListScreen({ navigation }) {
             </ScrollView>
           </>
         }
-        renderItem={({ item }) => <ProductCard product={item} />}
+        renderItem={({ item }) => <ProductCard product={item} navigation={navigation} />}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>No products found</Text>

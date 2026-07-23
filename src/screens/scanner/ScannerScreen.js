@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 
 import { useProductStore } from "../../store/productStore";
 import { useCartStore } from "../../store/cartStore";
@@ -10,25 +11,40 @@ import { useCartStore } from "../../store/cartStore";
 export default function ScannerScreen({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const isFocused = useIsFocused();
 
   const products = useProductStore((state) => state.products);
   const addToCart = useCartStore((state) => state.addToCart);
+
+  useEffect(() => {
+    return navigation.addListener("focus", () => setScanned(false));
+  }, [navigation]);
 
   const handleBarcodeScanned = ({ data }) => {
     if (scanned) return;
 
     setScanned(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     if (route?.params?.mode === "fillBarcode") {
-      navigation.replace("AddProduct", { barcode: data });
+      navigation.replace("AddProduct", {
+        barcode: data,
+        product: route?.params?.product,
+        draft: route?.params?.draft,
+      });
       return;
     }
 
     const product = products.find((item) => item.barcode === data);
 
     if (product) {
-      addToCart(product);
+      const result = addToCart(product);
+      if (!result.ok) {
+        Alert.alert("Cannot add product", result.message, [
+          { text: "Scan Again", onPress: () => setScanned(false) },
+        ]);
+        return;
+      }
       Alert.alert("Product Added", `${product.name} added to cart`, [
         { text: "Scan Again", onPress: () => setScanned(false) },
         { text: "Go to Billing", onPress: () => navigation.navigate("Billing") },
@@ -36,7 +52,7 @@ export default function ScannerScreen({ navigation, route }) {
     } else {
       Alert.alert("Product Not Found", `Barcode: ${data}`, [
         { text: "Scan Again", onPress: () => setScanned(false) },
-        { text: "Add Product", onPress: () => navigation.navigate("AddProduct") },
+        { text: "Add Product", onPress: () => navigation.navigate("AddProduct", { barcode: data }) },
       ]);
     }
   };
@@ -61,14 +77,16 @@ export default function ScannerScreen({ navigation, route }) {
 
   return (
     <View style={styles.screen}>
-      <CameraView
-        style={styles.camera}
-        facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "qr"],
-        }}
-        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-      />
+      {isFocused ? (
+        <CameraView
+          style={styles.camera}
+          facing="back"
+          barcodeScannerSettings={{
+            barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "qr"],
+          }}
+          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+        />
+      ) : null}
 
       <View style={styles.overlay}>
         <View style={styles.header}>

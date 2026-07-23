@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const ProductSchema = new mongoose.Schema(
   {
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
     name: {
       type: String,
       required: true,
@@ -11,8 +17,7 @@ const ProductSchema = new mongoose.Schema(
     barcode: {
       type: String,
       required: true,
-      unique: true,
-      index: true,
+      trim: true,
     },
 
     category: {
@@ -42,6 +47,11 @@ const ProductSchema = new mongoose.Schema(
       default: "",
     },
 
+    imagePublicId: {
+      type: String,
+      default: "",
+    },
+
     active: {
       type: Boolean,
       default: true,
@@ -52,4 +62,7 @@ const ProductSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Product", ProductSchema);
+ProductSchema.index({ owner: 1, barcode: 1 }, { unique: true });
+ProductSchema.index({ owner: 1, active: 1, createdAt: -1 });
+
+module.exports = mongoose.model("Product", ProductSchema, "billing_products");

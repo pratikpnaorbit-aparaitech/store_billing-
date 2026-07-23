@@ -1,53 +1,61 @@
 import { create } from "zustand";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { loadCustomers, saveCustomers } from "../utils/storage";
+import { hasRemoteApi } from "../services/api";
+import { createCustomer, deleteCustomer as deleteCustomerApi, fetchCustomers } from "../services/customerApi";
 
-const CUSTOMER_KEY = "SMART_BILLING_CUSTOMERS";
-
-const initialCustomers = [
-  {
-    id: "1",
-    name: "Walk-in Customer",
-    phone: "",
-    totalOrders: 0,
-    totalSpent: 0,
-  },
-];
+const walkInCustomer = { id: "walk-in", name: "Walk-in Customer", phone: "", totalOrders: 0, totalSpent: 0 };
+const normalize = (customer) => ({ ...customer, id: String(customer.id || customer._id) });
 
 export const useCustomerStore = create((set, get) => ({
-  customers: initialCustomers,
-
+  customers: [walkInCustomer], loading: false, error: null,
+  resetCustomers: () => set({ customers: [walkInCustomer], loading: false, error: null }),
   hydrateCustomers: async () => {
-    const data = await AsyncStorage.getItem(CUSTOMER_KEY);
-    if (data) set({ customers: JSON.parse(data) });
+    if (hasRemoteApi) {
+      try {
+        set({ loading: true, error: null });
+        const customers = [walkInCustomer, ...(await fetchCustomers()).map(normalize)];
+        set({ customers, loading: false });
+        await saveCustomers(customers);
+      } catch (error) {
+        const cached = await loadCustomers();
+        set({
+          customers: Array.isArray(cached) && cached.length ? cached.map(normalize) : [walkInCustomer],
+          loading: false,
+          error: error.message,
+        });
+      }
+      return;
+    }
+    const saved = await loadCustomers();
+    set({ customers: Array.isArray(saved) && saved.length ? saved : [walkInCustomer] });
   },
-
+  refreshCustomers: async () => {
+    if (!hasRemoteApi) return get().customers;
+    const customers = [walkInCustomer, ...(await fetchCustomers()).map(normalize)];
+    set({ customers, error: null });
+    await saveCustomers(customers);
+    return customers;
+  },
   addCustomer: async (customer) => {
-    const customers = [
-      {
-        id: Date.now().toString(),
-        totalOrders: 0,
-        totalSpent: 0,
-        ...customer,
-      },
-      ...get().customers,
-    ];
-
+    const phone = customer.phone.trim();
+    if (phone && get().customers.some((item) => item.phone === phone)) throw new Error("A customer with this mobile number already exists.");
+    const savedCustomer = hasRemoteApi ? normalize(await createCustomer({ name: customer.name.trim(), phone })) : { id: `customer-${Date.now()}`, name: customer.name.trim(), phone, totalOrders: 0, totalSpent: 0 };
+    const customers = [savedCustomer, ...get().customers];
     set({ customers });
-    await AsyncStorage.setItem(CUSTOMER_KEY, JSON.stringify(customers));
+    await saveCustomers(customers);
+    return savedCustomer;
   },
-
   updateCustomerStats: async (customerId, amount) => {
-    const customers = get().customers.map((c) =>
-      c.id === customerId
-        ? {
-            ...c,
-            totalOrders: Number(c.totalOrders || 0) + 1,
-            totalSpent: Number(c.totalSpent || 0) + Number(amount || 0),
-          }
-        : c
-    );
-
+    if (hasRemoteApi) return get().refreshCustomers();
+    const customers = get().customers.map((customer) => customer.id === customerId ? { ...customer, totalOrders: Number(customer.totalOrders || 0) + 1, totalSpent: Number(customer.totalSpent || 0) + Number(amount || 0) } : customer);
     set({ customers });
-    await AsyncStorage.setItem(CUSTOMER_KEY, JSON.stringify(customers));
+    await saveCustomers(customers);
+  },
+  deleteCustomer: async (id) => {
+    if (id === "walk-in") return;
+    if (hasRemoteApi) await deleteCustomerApi(id);
+    const customers = get().customers.filter((customer) => customer.id !== id);
+    set({ customers });
+    await saveCustomers(customers);
   },
 }));

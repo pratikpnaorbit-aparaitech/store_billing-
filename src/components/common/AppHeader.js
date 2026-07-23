@@ -11,7 +11,7 @@ function getGreeting() {
   return "Good Evening";
 }
 
-export default function AppHeader({ name = "Vivek" }) {
+export default function AppHeader({ name = "User", onNotifications }) {
   return (
     <View style={styles.header}>
       <View>
@@ -21,7 +21,7 @@ export default function AppHeader({ name = "Vivek" }) {
       </View>
 
       <View style={styles.right}>
-        <TouchableOpacity activeOpacity={0.8} style={styles.iconButton}>
+        <TouchableOpacity activeOpacity={0.8} style={styles.iconButton} onPress={onNotifications}>
           <Ionicons name="notifications-outline" size={21} color="#0F172A" />
         </TouchableOpacity>
         <UserAvatar name={name} />

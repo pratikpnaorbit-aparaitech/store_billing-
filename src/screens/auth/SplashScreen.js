@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -8,16 +8,18 @@ import {
   Dimensions,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAuthStore } from "../../store/authStore";
 
 const { width, height } = Dimensions.get("window");
 
 export default function SplashScreen({ navigation }) {
-  // Animation Nodes
-  const scaleAnim = useRef(new Animated.Value(0)).current; // सुरुवातीला पूर्ण गायब (0)
-  const moveXAnim = useRef(new Animated.Value(0)).current; // X हालचाल
-  const moveYAnim = useRef(new Animated.Value(0)).current; // Y हालचाल
-  const contentAlpha = useRef(new Animated.Value(0)).current; // टेक्स्ट opacity
-  const contentMoveY = useRef(new Animated.Value(15)).current; // टेक्स्ट खालून वर येण्यासाठी
+  const user = useAuthStore((state) => state.user);
+  const ready = useAuthStore((state) => state.ready);
+  const [scaleAnim] = useState(() => new Animated.Value(0));
+  const [moveXAnim] = useState(() => new Animated.Value(0));
+  const [moveYAnim] = useState(() => new Animated.Value(0));
+  const [contentAlpha] = useState(() => new Animated.Value(0));
+  const [contentMoveY] = useState(() => new Animated.Value(15));
 
   useEffect(() => {
     // १. लोगो बारीक मधून मोठा होणे (Spring Effect - No Jerk)
@@ -28,8 +30,7 @@ export default function SplashScreen({ navigation }) {
       useNativeDriver: true,
     }).start();
 
-    // २. लोगो कोपऱ्यात सरकवणे आणि टेक्स्ट दाखवणे (Fluid Timing)
-    setTimeout(() => {
+    const animationTimer = setTimeout(() => {
       Animated.parallel([
         // लोगो डाव्या कोपऱ्यात जाणार
         Animated.timing(moveXAnim, {
@@ -62,15 +63,16 @@ export default function SplashScreen({ navigation }) {
           useNativeDriver: true,
         }),
       ]).start();
-    }, 1000); // १ सेकंद मधोमध थांबून अ‍ॅनिमेशन सुरू होईल
+    }, 1000);
 
-    // ३. थेट लॉगिन स्क्रीनवर नेव्हिगेट करणे
-    const timer = setTimeout(() => {
-      navigation.replace("Login");
-    }, 2500);
+    return () => clearTimeout(animationTimer);
+  }, [contentAlpha, contentMoveY, moveXAnim, moveYAnim, scaleAnim]);
 
-    return () => clearTimeout(timer);
-  }, []);
+  useEffect(() => {
+    if (!ready) return undefined;
+    const navigationTimer = setTimeout(() => navigation.replace(user ? "Main" : "Login"), 2500);
+    return () => clearTimeout(navigationTimer);
+  }, [navigation, ready, user]);
 
   return (
     // Fresh Corporate Gradient (Royal Blue to Navy Soft Slate)

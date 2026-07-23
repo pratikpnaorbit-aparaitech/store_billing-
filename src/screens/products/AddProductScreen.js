@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,51 +8,77 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useProductStore } from "../../store/productStore";
+import { hasRemoteApi } from "../../services/api";
+import { uploadProductImage } from "../../services/uploadApi";
 
 export default function AddProductScreen({ navigation, route }) {
-  const [image, setImage] = useState(null);
+  const editing = route?.params?.product;
+  const draft = route?.params?.draft;
+  const [image, setImage] = useState(draft?.image || editing?.image || null);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    name: "",
-    barcode: "",
-    category: "",
-    price: "",
-    stock: "",
-    unit: "",
+    name: draft?.name ?? editing?.name ?? "",
+    barcode: route?.params?.barcode ?? draft?.barcode ?? editing?.barcode ?? "",
+    category: draft?.category ?? editing?.category ?? "",
+    price: draft?.price ?? (editing ? String(editing.price) : ""),
+    stock: draft?.stock ?? (editing ? String(editing.stock) : ""),
+    unit: draft?.unit ?? editing?.unit ?? "",
   });
 
   const addProduct = useProductStore((state) => state.addProduct);
-
-  useEffect(() => {
-    if (route?.params?.barcode) {
-      setForm((prev) => ({ ...prev, barcode: route.params.barcode }));
-    }
-  }, [route?.params?.barcode]);
+  const updateProduct = useProductStore((state) => state.updateProduct);
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const saveProduct = async () => {
-    if (!form.name.trim() || !form.price.trim()) {
-      Alert.alert("Missing details", "Product name and selling price are required.");
+    const price = Number(form.price);
+    const stock = Number(form.stock || 0);
+    if (!form.name.trim() || !Number.isFinite(price) || price <= 0) {
+      Alert.alert("Invalid details", "Product name and a selling price greater than zero are required.");
+      return;
+    }
+    if (!Number.isInteger(stock) || stock < 0) {
+      Alert.alert("Invalid stock", "Stock must be a whole number of zero or more.");
       return;
     }
 
-    await addProduct({
+    let uploadedImage = { url: image || "", publicId: editing?.imagePublicId || "" };
+    setSaving(true);
+    try {
+      if (hasRemoteApi && image && !/^https:\/\//i.test(image)) {
+        uploadedImage = await uploadProductImage(image);
+      }
+    } catch (error) {
+      setSaving(false);
+      Alert.alert("Photo upload failed", `${error.message}. Check image storage configuration and try again.`);
+      return;
+    }
+    const product = {
       name: form.name.trim(),
       barcode: form.barcode.trim() || Date.now().toString(),
       category: form.category.trim() || "Grocery",
-      price: Number(form.price) || 0,
-      stock: Number(form.stock) || 0,
+      price,
+      stock,
       unit: form.unit.trim() || "1 pc",
-      image,
-    });
-
-    navigation.goBack();
+      image: uploadedImage.url,
+      imagePublicId: uploadedImage.publicId,
+    };
+    try {
+      if (editing) await updateProduct(editing.id, product);
+      else await addProduct(product);
+      navigation.goBack();
+    } catch (error) {
+      setSaving(false);
+      Alert.alert("Could not save product", error.message);
+    }
   };
 
   const pickImage = async () => {
@@ -71,7 +97,15 @@ export default function AddProductScreen({ navigation, route }) {
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      if (Platform.OS === "web" || !FileSystem.documentDirectory) {
+        setImage(asset.uri);
+      } else {
+        const extension = asset.fileName?.split(".").pop()?.replace(/[^a-zA-Z0-9]/g, "") || "jpg";
+        const destination = `${FileSystem.documentDirectory}product-${Date.now()}.${extension}`;
+        await FileSystem.copyAsync({ from: asset.uri, to: destination });
+        setImage(destination);
+      }
     }
   };
 
@@ -81,7 +115,7 @@ export default function AddProductScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.title}>Add Product</Text>
+        <Text style={styles.title}>{editing ? "Edit Product" : "Add Product"}</Text>
       </View>
 
       <TouchableOpacity activeOpacity={0.85} style={styles.imagePicker} onPress={pickImage}>
@@ -124,7 +158,11 @@ export default function AddProductScreen({ navigation, route }) {
             {key === "barcode" ? (
               <TouchableOpacity
                 style={styles.scanBtn}
-                onPress={() => navigation.navigate("BarcodeScanner", { mode: "fillBarcode" })}
+                onPress={() => navigation.navigate("BarcodeScanner", {
+                  mode: "fillBarcode",
+                  product: editing,
+                  draft: { ...form, image },
+                })}
               >
                 <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
@@ -133,8 +171,8 @@ export default function AddProductScreen({ navigation, route }) {
         </View>
       ))}
 
-      <TouchableOpacity activeOpacity={0.85} style={styles.button} onPress={saveProduct}>
-        <Text style={styles.buttonText}>Save Product</Text>
+      <TouchableOpacity activeOpacity={0.85} style={styles.button} onPress={saveProduct} disabled={saving}>
+        <Text style={styles.buttonText}>{saving ? "Saving..." : editing ? "Update Product" : "Save Product"}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

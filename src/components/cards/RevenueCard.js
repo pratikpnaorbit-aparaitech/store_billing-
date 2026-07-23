@@ -13,7 +13,7 @@ export default function RevenueCard({
     <LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.card}>
       <View style={styles.topRow}>
         <View>
-          <Text style={styles.label}>Today's Revenue</Text>
+          <Text style={styles.label}>Today’s Revenue</Text>
           <Text style={styles.amount}>{revenue}</Text>
         </View>
 

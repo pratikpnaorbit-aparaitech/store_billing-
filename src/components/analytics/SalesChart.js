@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { formatCurrency } from "../../utils/billing";
 
 export default function SalesChart({ data }) {
   const max = Math.max(...data.map((i) => i.amount), 1);
@@ -17,7 +18,7 @@ export default function SalesChart({ data }) {
             <View style={styles.track}>
               <View style={[styles.bar, { width }]} />
             </View>
-            <Text style={styles.amount}>₹{item.amount}</Text>
+            <Text style={styles.amount}>{formatCurrency(item.amount)}</Text>
           </View>
         );
       })}
@@ -45,5 +46,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   bar: { height: "100%", borderRadius: 999, backgroundColor: "#0A46E4" },
-  amount: { width: 58, textAlign: "right", fontSize: 12, fontWeight: "800", color: "#0F172A" },
+  amount: { width: 82, textAlign: "right", fontSize: 11, fontWeight: "800", color: "#0F172A" },
 });

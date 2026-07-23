@@ -1,243 +1,49 @@
-import React from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import React, { useState } from "react";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { useCartStore } from "../../store/cartStore";
 import { useProductStore } from "../../store/productStore";
 import { useOrderStore } from "../../store/orderStore";
+import { useCustomerStore } from "../../store/customerStore";
 import { generateAndShareReceiptPDF } from "../../utils/pdfGenerator";
 import { buildThermalReceipt } from "../../utils/printer/thermalReceipt";
+import { createInvoiceNo, formatCurrency } from "../../utils/billing";
+import { hasRemoteApi } from "../../services/api";
 
 export default function ReceiptScreen({ navigation, route }) {
   const cart = useCartStore((state) => state.cart);
   const clearCart = useCartStore((state) => state.clearCart);
   const reduceStock = useProductStore((state) => state.reduceStock);
   const addOrder = useOrderStore((state) => state.addOrder);
+  const updateCustomerStats = useCustomerStore((state) => state.updateCustomerStats);
+  const [busy, setBusy] = useState(false);
+  const [invoiceNo] = useState(() => createInvoiceNo());
+  const [createdAt] = useState(() => new Date().toISOString());
+  const data = { cart, invoiceNo, date: dayjs(createdAt).format("DD MMM YYYY, hh:mm A"), payment:"Cash", subtotal:0, gstRate:5, gst:0, discount:0, total:0, customer:{id:'walk-in',name:'Walk-in Customer'}, ...(route.params || {}) };
 
-  const {
-    payment = "Cash",
-    subtotal = 0,
-    gst = 0,
-    discount = 0,
-    total = 0,
-  } = route.params || {};
-
-  const invoiceNo = `INV-${Date.now().toString().slice(-6)}`;
-
-  const sharePDF = async () => {
-    await generateAndShareReceiptPDF({
-      cart,
-      payment,
-      subtotal,
-      gst,
-      discount,
-      total,
-      invoiceNo,
-      date: dayjs().format("DD MMM YYYY, hh:mm A"),
-    });
-  };
-
-  const previewThermalReceipt = () => {
-    const text = buildThermalReceipt({
-      cart,
-      payment,
-      subtotal,
-      gst,
-      discount,
-      total,
-      invoiceNo,
-      date: dayjs().format("DD MMM YYYY, hh:mm A"),
-    });
-
-    Alert.alert("Thermal Receipt Preview", text);
-  };
-
+  const sharePDF = async () => { try { await generateAndShareReceiptPDF(data); } catch (error) { Alert.alert("PDF failed", error.message); } };
+  const previewThermalReceipt = () => Alert.alert("Thermal Receipt Preview", buildThermalReceipt(data));
   const finishSale = async () => {
-    await addOrder({
-      cart,
-      payment,
-      subtotal,
-      gst,
-      discount,
-      total,
-    });
-
-    reduceStock(cart);
-    clearCart();
-    navigation.navigate("Main");
+    if (busy || !cart.length) return;
+    setBusy(true);
+    try {
+      await addOrder({ ...data, createdAt, customer: data.customer });
+      if (hasRemoteApi) {
+        await Promise.allSettled([
+          reduceStock(cart),
+          updateCustomerStats(data.customer?.id || "walk-in", data.total),
+        ]);
+      } else {
+        await reduceStock(cart);
+        await updateCustomerStats(data.customer?.id || "walk-in", data.total);
+      }
+      await clearCart();
+      navigation.reset({ index: 0, routes: [{ name: "Main" }] });
+    } catch (error) { setBusy(false); Alert.alert("Sale not completed", error.message); }
   };
 
-  return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#0F172A" />
-        </TouchableOpacity>
-        <Text style={styles.title}>Receipt</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.receipt}>
-          <Text style={styles.storeName}>SMART BILLING</Text>
-          <Text style={styles.storeSub}>Scan • Bill • Print</Text>
-
-          <View style={styles.divider} />
-
-          <InfoRow label="Invoice" value={invoiceNo} />
-          <InfoRow label="Date" value={dayjs().format("DD MMM YYYY, hh:mm A")} />
-          <InfoRow label="Payment" value={payment} />
-
-          <View style={styles.divider} />
-
-          {cart.map((item) => (
-            <View style={styles.itemRow} key={item.id}>
-              <View style={styles.itemLeft}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemMeta}>{item.quantity} × ₹{item.price}</Text>
-              </View>
-              <Text style={styles.itemAmount}>₹{Number(item.price) * item.quantity}</Text>
-            </View>
-          ))}
-
-          <View style={styles.divider} />
-
-          <InfoRow label="Subtotal" value={`₹${subtotal}`} />
-          <InfoRow label="GST 5%" value={`₹${gst}`} />
-          <InfoRow label="Discount" value={`₹${discount}`} />
-
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>TOTAL</Text>
-            <Text style={styles.totalValue}>₹{total}</Text>
-          </View>
-
-          <Text style={styles.thanks}>Thank you ❤️</Text>
-        </View>
-
-        <TouchableOpacity style={styles.printBtn} activeOpacity={0.85} onPress={sharePDF}>
-          <Ionicons name="print-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.printText}>Share PDF Receipt</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.doneBtn} activeOpacity={0.85} onPress={previewThermalReceipt}>
-          <Text style={styles.doneText}>Thermal Preview</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.doneBtn} activeOpacity={0.85} onPress={finishSale}>
-          <Text style={styles.doneText}>Done</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </View>
-  );
+  return <View style={styles.screen}><View style={styles.header}><TouchableOpacity onPress={()=>navigation.goBack()} style={styles.back}><Ionicons name="arrow-back" size={22} color="#0F172A"/></TouchableOpacity><Text style={styles.title}>Receipt</Text></View><ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}><View style={styles.receipt}><Text style={styles.store}>SMART BILLING</Text><Text style={styles.sub}>Scan • Bill • Print</Text><View style={styles.line}/><Info label="Invoice" value={invoiceNo}/><Info label="Date" value={data.date}/><Info label="Customer" value={data.customer?.name || 'Walk-in Customer'}/><Info label="Payment" value={data.payment}/><View style={styles.line}/>{cart.map((item)=><View style={styles.item} key={item.id}><View style={styles.flex}><Text style={styles.itemName}>{item.name}</Text><Text style={styles.itemMeta}>{item.quantity} × {formatCurrency(item.price)}</Text></View><Text style={styles.itemAmount}>{formatCurrency(Number(item.price)*item.quantity)}</Text></View>)}<View style={styles.line}/><Info label="Subtotal" value={formatCurrency(data.subtotal)}/><Info label={`GST ${data.gstRate}%`} value={formatCurrency(data.gst)}/><Info label="Discount" value={formatCurrency(data.discount)}/><View style={styles.total}><Text style={styles.totalLabel}>TOTAL</Text><Text style={styles.totalValue}>{formatCurrency(data.total)}</Text></View><Text style={styles.thanks}>Thank you ❤️</Text></View><TouchableOpacity style={styles.primary} onPress={sharePDF}><Ionicons name="share-outline" size={20} color="#FFF"/><Text style={styles.primaryText}>Share PDF Receipt</Text></TouchableOpacity><TouchableOpacity style={styles.secondary} onPress={previewThermalReceipt}><Text style={styles.secondaryText}>Thermal Preview</Text></TouchableOpacity><TouchableOpacity style={styles.complete} onPress={finishSale} disabled={busy}><Text style={styles.primaryText}>{busy?'Saving Sale...':'Complete Sale'}</Text></TouchableOpacity></ScrollView></View>;
 }
-
-function InfoRow({ label, value }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#F8FAFC" },
-  header: {
-    paddingTop: 44,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    marginRight: 14,
-  },
-  title: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
-  content: { padding: 20, paddingBottom: 40 },
-  receipt: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  storeName: {
-    textAlign: "center",
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#0F172A",
-    letterSpacing: 1,
-  },
-  storeSub: {
-    textAlign: "center",
-    marginTop: 4,
-    color: "#64748B",
-    fontWeight: "700",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#E2E8F0",
-    marginVertical: 16,
-  },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 9,
-  },
-  infoLabel: { color: "#64748B", fontWeight: "700" },
-  infoValue: { color: "#0F172A", fontWeight: "900" },
-  itemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-  itemLeft: { flex: 1 },
-  itemName: { color: "#0F172A", fontWeight: "900", fontSize: 15 },
-  itemMeta: { marginTop: 4, color: "#64748B", fontWeight: "600", fontSize: 12 },
-  itemAmount: { color: "#0A46E4", fontWeight: "900", fontSize: 15 },
-  totalRow: {
-    marginTop: 14,
-    borderRadius: 18,
-    backgroundColor: "#0F172A",
-    padding: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  totalLabel: { color: "#FFFFFF", fontWeight: "900", fontSize: 16 },
-  totalValue: { color: "#FFFFFF", fontWeight: "900", fontSize: 20 },
-  thanks: {
-    textAlign: "center",
-    marginTop: 18,
-    color: "#64748B",
-    fontWeight: "800",
-  },
-  printBtn: {
-    marginTop: 18,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "#0A46E4",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  printText: { color: "#FFFFFF", fontWeight: "900", fontSize: 15 },
-  doneBtn: {
-    marginTop: 12,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  doneText: { color: "#0F172A", fontWeight: "900", fontSize: 15 },
-});
+function Info({label,value}){return <View style={styles.info}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value}</Text></View>}
+const styles=StyleSheet.create({screen:{flex:1,backgroundColor:'#F8FAFC'},header:{paddingTop:44,paddingHorizontal:20,paddingBottom:16,flexDirection:'row',alignItems:'center'},back:{width:44,height:44,borderRadius:16,backgroundColor:'#FFF',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#E2E8F0',marginRight:14},title:{fontSize:28,fontWeight:'900',color:'#0F172A'},content:{padding:20,paddingBottom:45},receipt:{backgroundColor:'#FFF',borderRadius:24,padding:22,borderWidth:1,borderColor:'#E2E8F0'},store:{textAlign:'center',fontSize:22,fontWeight:'900',letterSpacing:1,color:'#0F172A'},sub:{textAlign:'center',marginTop:4,color:'#64748B',fontWeight:'700'},line:{height:1,backgroundColor:'#E2E8F0',marginVertical:16},info:{flexDirection:'row',justifyContent:'space-between',marginBottom:9,gap:16},infoLabel:{color:'#64748B',fontWeight:'700'},infoValue:{color:'#0F172A',fontWeight:'900',flexShrink:1,textAlign:'right'},item:{flexDirection:'row',justifyContent:'space-between',marginBottom:14},flex:{flex:1},itemName:{fontWeight:'900',color:'#0F172A'},itemMeta:{marginTop:4,color:'#64748B',fontSize:12},itemAmount:{fontWeight:'900',color:'#0A46E4'},total:{marginTop:14,borderRadius:18,backgroundColor:'#0F172A',padding:16,flexDirection:'row',justifyContent:'space-between'},totalLabel:{color:'#FFF',fontWeight:'900',fontSize:16},totalValue:{color:'#FFF',fontWeight:'900',fontSize:20},thanks:{textAlign:'center',marginTop:18,color:'#64748B',fontWeight:'800'},primary:{marginTop:18,height:56,borderRadius:18,backgroundColor:'#0A46E4',alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8},complete:{marginTop:12,height:56,borderRadius:18,backgroundColor:'#16A34A',alignItems:'center',justifyContent:'center'},primaryText:{color:'#FFF',fontWeight:'900'},secondary:{marginTop:12,height:54,borderRadius:18,backgroundColor:'#FFF',borderWidth:1,borderColor:'#E2E8F0',alignItems:'center',justifyContent:'center'},secondaryText:{color:'#0F172A',fontWeight:'900'}});
