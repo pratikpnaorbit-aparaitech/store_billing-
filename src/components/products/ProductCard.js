@@ -8,11 +8,26 @@ import { formatCurrency } from "../../utils/billing";
 
 export default function ProductCard({ product, navigation }) {
   const addToCart = useCartStore((state) => state.addToCart);
+  const removeItem = useCartStore((state) => state.removeItem);
   const deleteProduct = useProductStore((state) => state.deleteProduct);
   const stock = Number(product.stock || 0);
   const out = stock <= 0;
   const low = stock > 0 && stock <= 10;
-  const remove = () => Alert.alert("Delete product?", product.name, [{ text: "Cancel", style: "cancel" }, { text: "Delete", style: "destructive", onPress: () => deleteProduct(product.id) }]);
+  const remove = () => Alert.alert("Delete product?", product.name, [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Delete",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          await deleteProduct(product.id);
+          removeItem(product.id);
+        } catch (error) {
+          Alert.alert("Could not delete product", error.message);
+        }
+      },
+    },
+  ]);
   const add = () => { const result = addToCart(product); if (!result.ok) Alert.alert("Cannot add", result.message); };
 
   return <AppCard style={styles.card}><View style={styles.row}>{product.image ? <Image source={{uri:product.image}} style={styles.image}/> : <View style={styles.icon}><Ionicons name="cube-outline" size={24} color="#0A46E4"/></View>}<View style={styles.info}><Text style={styles.name}>{product.name}</Text><Text style={styles.meta}>{product.category} • {product.unit}</Text><Text style={styles.barcode}>Barcode: {product.barcode}</Text></View><View style={styles.right}><Text style={styles.price}>{formatCurrency(product.price)}</Text><Text style={[styles.stock,low&&styles.low,out&&styles.out]}>{out?'Out of stock':`Stock ${stock}`}</Text>{low?<Text style={styles.low}>LOW STOCK</Text>:null}</View></View><View style={styles.actions}><TouchableOpacity style={styles.iconAction} onPress={()=>navigation.navigate('AddProduct',{product})}><Ionicons name="create-outline" size={19} color="#0A46E4"/></TouchableOpacity><TouchableOpacity style={styles.iconAction} onPress={remove}><Ionicons name="trash-outline" size={19} color="#EF4444"/></TouchableOpacity><TouchableOpacity style={[styles.add,out&&styles.disabled]} onPress={add} disabled={out}><Ionicons name="cart-outline" size={18} color="#FFF"/><Text style={styles.addText}> Add</Text></TouchableOpacity></View></AppCard>;

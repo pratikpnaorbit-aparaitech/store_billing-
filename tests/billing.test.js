@@ -24,7 +24,9 @@ test("clamps invalid rates and discounts", () => {
 });
 
 test("creates stable sortable invoice format", () => {
-  assert.match(createInvoiceNo(new Date("2026-07-22T12:34:56").getTime()), /^INV-\d{12}$/);
+  const now = new Date("2026-07-22T12:34:56.789").getTime();
+  assert.match(createInvoiceNo(now, 0.25), /^INV-\d{12}-\d{3}-[A-Z0-9]{4}$/);
+  assert.notEqual(createInvoiceNo(now, 0.25), createInvoiceNo(now, 0.75));
 });
 
 test("aggregates completed order analytics", () => {

@@ -39,7 +39,7 @@ exports.requestRegistration = async (req, res) => {
         codeHash: hashCode(code),
         expiresAt: new Date(Date.now() + 15 * 60 * 1000),
       },
-      { upsert: true, new: true, runValidators: true },
+      { upsert: true, returnDocument: "after", runValidators: true },
     );
     try {
       await sendRegistrationCode(email, code);
@@ -106,7 +106,11 @@ exports.updateProfile = async (req, res) => {
   const name = String(req.body.name || "").trim();
   const storeName = String(req.body.storeName || "").trim();
   if (!name || !storeName) return res.status(400).json({ success: false, message: "Name and store name are required" });
-  const user = await User.findByIdAndUpdate(req.userId, { name, storeName }, { new: true, runValidators: true });
+  const user = await User.findByIdAndUpdate(
+    req.userId,
+    { name, storeName },
+    { returnDocument: "after", runValidators: true },
+  );
   res.json({ success: true, data: publicUser(user) });
 };
 

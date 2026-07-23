@@ -22,7 +22,7 @@ exports.deleteCustomer = async (req, res) => {
   const customer = await Customer.findOneAndUpdate(
     { _id: req.params.id, owner: req.userId, active: true },
     { active: false },
-    { new: true },
+    { returnDocument: "after" },
   );
   if (!customer) return res.status(404).json({ success: false, message: "Customer not found" });
   res.json({ success: true });

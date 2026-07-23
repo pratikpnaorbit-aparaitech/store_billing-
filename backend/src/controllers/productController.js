@@ -56,7 +56,7 @@ exports.updateProduct = async (req, res) => {
     const product = await Product.findOneAndUpdate(
       { _id: req.params.id, owner: req.userId, active: true },
       payload,
-      { new: true, runValidators: true },
+      { returnDocument: "after", runValidators: true },
     );
     if (existing.imagePublicId && existing.imagePublicId !== product.imagePublicId) await destroyImage(existing.imagePublicId);
     res.json({ success: true, data: product });
@@ -69,7 +69,7 @@ exports.deleteProduct = async (req, res) => {
   const product = await Product.findOneAndUpdate(
     { _id: req.params.id, owner: req.userId, active: true },
     { active: false },
-    { new: true },
+    { returnDocument: "after" },
   );
   if (!product) return res.status(404).json({ success: false, message: "Product not found" });
   await destroyImage(product.imagePublicId);

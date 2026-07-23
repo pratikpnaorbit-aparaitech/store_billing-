@@ -15,7 +15,7 @@ export function calculateBill(cart = [], gstRate = 5, discount = 0) {
   return { subtotal, gstRate: safeGstRate, gst, discount: safeDiscount, total };
 }
 
-export function createInvoiceNo(now = Date.now()) {
+export function createInvoiceNo(now = Date.now(), random = Math.random()) {
   const date = new Date(now);
   const stamp = [
     String(date.getFullYear()).slice(-2),
@@ -25,7 +25,12 @@ export function createInvoiceNo(now = Date.now()) {
     String(date.getMinutes()).padStart(2, "0"),
     String(date.getSeconds()).padStart(2, "0"),
   ].join("");
-  return `INV-${stamp}`;
+  const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
+  const entropy = Math.floor(Math.max(0, Math.min(0.999999, Number(random) || 0)) * 1679616)
+    .toString(36)
+    .padStart(4, "0")
+    .toUpperCase();
+  return `INV-${stamp}-${milliseconds}-${entropy}`;
 }
 
 export function formatCurrency(value) {

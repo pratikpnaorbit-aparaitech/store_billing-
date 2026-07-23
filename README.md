@@ -19,6 +19,17 @@ EXPO_PUBLIC_API_URL=https://smart-billing-api.example.com
 
 Never place secrets in an `EXPO_PUBLIC_` variable because Expo embeds it in the client bundle.
 
+If the ignored local environment files are deleted, restore them from the
+ServiceHub backend environment without printing credentials:
+
+```bash
+npm run env:restore -- /absolute/path/to/All_In_One_Services/backend/.env http://YOUR-LAN-IP:5001
+```
+
+The command reuses the Atlas credentials, points authentication at the existing
+ServiceHub database, keeps billing data in `smart_billing`, and writes local
+development configuration to `.env` and `backend/.env`.
+
 ## Backend
 
 ```bash
@@ -32,6 +43,11 @@ Production startup validates MongoDB, JWT, CORS, Cloudinary, and SMTP configurat
 
 For the ServiceHub integration, authentication uses the existing `all_in_one_services.users` collection and its bcrypt `password` field through `AUTH_MONGODB_URI`. Billing-owned data is isolated in the separate `smart_billing` database through `MONGODB_URI`. Brevo API email is supported directly through `BREVO_API_KEY`; SMTP remains an alternative.
 
+When Cloudinary is not configured, local development can store validated
+product images (up to 5 MB) directly with the product so the complete add/edit
+flow remains testable. This fallback is disabled in production, where
+Cloudinary remains required.
+
 ## Verification
 
 ```bash
@@ -41,6 +57,12 @@ cd backend
 npm test
 npm audit --omit=dev
 ```
+
+With a development backend environment configured, `npm run test:live` performs
+a controlled API/Atlas smoke test using uniquely named temporary records. It
+verifies authentication, profile/password updates, images, products, customers,
+orders, stock, and deletes, then removes all generated audit records in a
+`finally` cleanup. The command refuses to run when `NODE_ENV=production`.
 
 ## Deployment
 

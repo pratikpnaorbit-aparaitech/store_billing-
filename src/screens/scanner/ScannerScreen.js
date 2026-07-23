@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 
 import { useProductStore } from "../../store/productStore";
 import { useCartStore } from "../../store/cartStore";
@@ -10,9 +11,14 @@ import { useCartStore } from "../../store/cartStore";
 export default function ScannerScreen({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const isFocused = useIsFocused();
 
   const products = useProductStore((state) => state.products);
   const addToCart = useCartStore((state) => state.addToCart);
+
+  useEffect(() => {
+    return navigation.addListener("focus", () => setScanned(false));
+  }, [navigation]);
 
   const handleBarcodeScanned = ({ data }) => {
     if (scanned) return;
@@ -71,14 +77,16 @@ export default function ScannerScreen({ navigation, route }) {
 
   return (
     <View style={styles.screen}>
-      <CameraView
-        style={styles.camera}
-        facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "qr"],
-        }}
-        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-      />
+      {isFocused ? (
+        <CameraView
+          style={styles.camera}
+          facing="back"
+          barcodeScannerSettings={{
+            barcodeTypes: ["ean13", "ean8", "upc_a", "upc_e", "code128", "qr"],
+          }}
+          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+        />
+      ) : null}
 
       <View style={styles.overlay}>
         <View style={styles.header}>

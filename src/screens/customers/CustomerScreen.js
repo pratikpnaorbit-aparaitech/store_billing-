@@ -19,7 +19,17 @@ export default function CustomerScreen() {
     catch (error) { Alert.alert("Could not add customer", error.message); }
   };
 
-  const remove = (customer) => Alert.alert("Delete customer?", customer.name, [{text:"Cancel",style:"cancel"},{text:"Delete",style:"destructive",onPress:()=>deleteCustomer(customer.id)}]);
+  const remove = (customer) => Alert.alert("Delete customer?", customer.name, [
+    { text: "Cancel", style: "cancel" },
+    {
+      text: "Delete",
+      style: "destructive",
+      onPress: async () => {
+        try { await deleteCustomer(customer.id); }
+        catch (error) { Alert.alert("Could not delete customer", error.message); }
+      },
+    },
+  ]);
 
   return <View style={styles.screen}><View style={styles.header}><View><Text style={styles.title}>Customers</Text><Text style={styles.subtitle}>Customer purchase history</Text></View><TouchableOpacity style={styles.add} onPress={() => setShowForm((value)=>!value)}><Ionicons name={showForm?'close':'person-add-outline'} size={21} color="#FFF" /></TouchableOpacity></View>{showForm ? <View style={styles.form}><TextInput value={name} onChangeText={setName} placeholder="Customer name" style={styles.input}/><TextInput value={phone} onChangeText={setPhone} placeholder="10 digit mobile (optional)" keyboardType="phone-pad" maxLength={10} style={styles.input}/><TouchableOpacity style={styles.save} onPress={save}><Text style={styles.saveText}>Save Customer</Text></TouchableOpacity></View> : null}<FlatList data={customers} keyExtractor={(item)=>item.id} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false} renderItem={({item})=><TouchableOpacity activeOpacity={item.id==='walk-in'?1:0.8} onLongPress={item.id==='walk-in'?undefined:()=>remove(item)}><CustomerCard customer={item}/></TouchableOpacity>} ListEmptyComponent={<View style={styles.empty}><Ionicons name="people-outline" size={48} color="#94A3B8"/><Text>No customers yet</Text></View>}/></View>;
 }
