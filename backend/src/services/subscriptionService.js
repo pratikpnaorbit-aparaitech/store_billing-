@@ -121,8 +121,8 @@ async function ensureMonthlyPlan() {
   return plan.id;
 }
 
-async function createProviderSubscription(user) {
-  const planId = await ensureMonthlyPlan();
+async function createProviderSubscription(user, requestedPlanId = "") {
+  const planId = requestedPlanId || await ensureMonthlyPlan();
   const totalCount = Math.min(1200, Math.max(1, Number(process.env.RAZORPAY_TOTAL_COUNT || 120)));
   const providerSubscription = await razorpayClient().subscriptions.create({
     plan_id: planId,
@@ -156,17 +156,19 @@ async function createProviderSubscription(user) {
 }
 
 async function providerSubscriptionForCheckout(user) {
+  const currentPlanId = await ensureMonthlyPlan();
   const existingId = user.subscription?.razorpaySubscriptionId;
   const existingStatus = String(user.subscription?.status || "").toLowerCase();
   if (existingId && !TERMINAL_STATUSES.has(existingStatus)) {
     try {
       const existing = await razorpayClient().subscriptions.fetch(existingId);
-      if (!TERMINAL_STATUSES.has(String(existing.status || "").toLowerCase())) return existing;
+      const existingIsUsable = !TERMINAL_STATUSES.has(String(existing.status || "").toLowerCase());
+      if (existingIsUsable && existing.plan_id === currentPlanId) return existing;
     } catch {
       // Create a fresh provider subscription if the old one can no longer be fetched.
     }
   }
-  return createProviderSubscription(user);
+  return createProviderSubscription(user, currentPlanId);
 }
 
 function verifySubscriptionSignature({ paymentId, subscriptionId, signature }) {

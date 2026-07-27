@@ -58,6 +58,21 @@ test("validates registration before accessing the database", () => withServer(as
 }));
 
 test("protects subscription and admin data endpoints", () => withServer(async (origin) => {
+  process.env.SUBSCRIPTION_AMOUNT_PAISE = "100";
+  const plan = await fetch(`${origin}/api/subscriptions/plan`);
+  assert.equal(plan.status, 200);
+  assert.deepEqual(await plan.json(), {
+    success: true,
+    data: {
+      name: "Smart Billing Monthly",
+      amount: 1,
+      amountPaise: 100,
+      currency: "INR",
+      interval: "month",
+      trialDays: 7,
+    },
+  });
+
   const subscription = await fetch(`${origin}/api/subscriptions/status`);
   assert.equal(subscription.status, 401);
 

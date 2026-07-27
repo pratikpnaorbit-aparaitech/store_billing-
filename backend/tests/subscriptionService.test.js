@@ -61,3 +61,16 @@ test("verifies Razorpay subscription signatures without trusting the client", ()
   assert.equal(verifySubscriptionSignature({ paymentId, subscriptionId, signature }), true);
   assert.equal(verifySubscriptionSignature({ paymentId, subscriptionId, signature: `${signature.slice(0, -1)}0` }), false);
 });
+
+test("uses the server-configured testing price in entitlement responses", () => {
+  const previousAmount = process.env.SUBSCRIPTION_AMOUNT_PAISE;
+  process.env.SUBSCRIPTION_AMOUNT_PAISE = "100";
+  try {
+    const view = subscriptionView(baseUser, new Date("2026-07-07T00:00:00.000Z"));
+    assert.equal(view.plan.amount, 1);
+    assert.equal(view.plan.amountPaise, 100);
+  } finally {
+    if (previousAmount === undefined) delete process.env.SUBSCRIPTION_AMOUNT_PAISE;
+    else process.env.SUBSCRIPTION_AMOUNT_PAISE = previousAmount;
+  }
+});

@@ -16,9 +16,10 @@ export default function SubscriptionBanner() {
   const subscription = useAuthStore((state) => state.user?.subscription);
   if (!subscription) return null;
   const trial = subscription.status === "trial_active";
+  const monthlyAmount = Number(subscription.plan?.amount || 300);
   const title = trial
     ? `${subscription.trialDaysRemaining} free trial day${subscription.trialDaysRemaining === 1 ? "" : "s"} left`
-    : "₹300 monthly plan active";
+    : `₹${monthlyAmount.toLocaleString("en-IN")} monthly plan active`;
   const detail = trial
     ? `Free access ends ${formatDate(subscription.trialEndsAt)}`
     : subscription.nextChargeAt

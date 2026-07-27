@@ -27,6 +27,7 @@ export default function SubscriptionScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState("");
   const subscription = user?.subscription || {};
+  const monthlyAmount = Number(subscription.plan?.amount || 300);
   const paymentIssue = ["pending", "halted"].includes(subscription.providerStatus);
 
   const refresh = async () => {
@@ -76,7 +77,7 @@ export default function SubscriptionScreen() {
                 : `Your 7-day trial ended on ${formatDate(subscription.trialEndsAt)}. Activate the monthly plan to continue using the app.`}
             </Text>
 
-            <View style={styles.priceRow}><Text style={styles.price}>₹300</Text><Text style={styles.period}>/ month</Text></View>
+            <View style={styles.priceRow}><Text style={styles.price}>₹{monthlyAmount.toLocaleString("en-IN")}</Text><Text style={styles.period}>/ month</Text></View>
             {[
               "Unlimited billing and inventory",
               "Customers, reports and receipts",

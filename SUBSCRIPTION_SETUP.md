@@ -26,7 +26,7 @@ PUBLIC_API_URL=https://store-billing-3ze0.onrender.com
 APP_DEEP_LINK=smartbilling://subscription/payment
 
 TRIAL_DAYS=7
-SUBSCRIPTION_AMOUNT_PAISE=30000
+SUBSCRIPTION_AMOUNT_PAISE=100
 RAZORPAY_TOTAL_COUNT=120
 RAZORPAY_KEY_ID=...
 RAZORPAY_KEY_SECRET=...
@@ -40,8 +40,10 @@ ADMIN_PASSWORD=...
 Keep the existing email and optional Cloudinary variables configured as well.
 `CORS_ORIGINS=*` is intentionally rejected in production.
 
-When `RAZORPAY_PLAN_ID` is blank, the backend creates the ₹300 monthly plan once
-on the first checkout and stores its plan ID in MongoDB.
+The current deployment uses `100` paise (₹1) only for end-to-end payment testing.
+Restore this to `30000` paise before the production release. When
+`RAZORPAY_PLAN_ID` is blank, the backend creates the monthly plan for the
+configured amount on the first checkout and stores its plan ID in MongoDB.
 
 ## Razorpay webhook
 

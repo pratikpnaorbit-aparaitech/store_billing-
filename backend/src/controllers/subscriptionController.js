@@ -8,6 +8,7 @@ const {
   providerSubscriptionForCheckout,
   razorpayClient,
   recordEvent,
+  subscriptionAmount,
   subscriptionView,
   syncProviderSubscription,
   verifySubscriptionSignature,
@@ -25,11 +26,14 @@ function safeJson(value) {
 }
 
 function checkoutHtml({ checkout, user, token, redirectUrl, nonce }) {
+  const displayAmount = new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 2,
+  }).format(subscriptionAmount() / 100);
   const options = {
     key: String(process.env.RAZORPAY_KEY_ID || ""),
     subscription_id: checkout.id,
     name: "Smart Billing",
-    description: "₹300 monthly subscription",
+    description: `₹${displayAmount} monthly subscription`,
     prefill: {
       name: user.name,
       email: user.email,
@@ -66,7 +70,7 @@ function checkoutHtml({ checkout, user, token, redirectUrl, nonce }) {
     <div class="icon">₹</div>
     <h1>Continue with Smart Billing</h1>
     <p class="sub">Your 7-day free trial is complete. Authorise the monthly plan to keep billing, inventory and reports active.</p>
-    <div class="price"><strong>₹300</strong><span>/ month</span></div>
+    <div class="price"><strong>₹${displayAmount}</strong><span>/ month</span></div>
     <ul class="features"><li>Recurring monthly access</li><li>Secure Razorpay checkout</li><li>Cancel from Razorpay when required</li></ul>
     <button id="pay">Continue to Razorpay</button>
     <button id="back" class="secondary" type="button">Back to app</button>
@@ -134,6 +138,18 @@ exports.getStatus = async (req, res) => {
   }
   return res.json({ success: true, data: subscriptionView(req.user) });
 };
+
+exports.getPlan = (req, res) => res.json({
+  success: true,
+  data: {
+    name: "Smart Billing Monthly",
+    amount: subscriptionAmount() / 100,
+    amountPaise: subscriptionAmount(),
+    currency: "INR",
+    interval: "month",
+    trialDays: Math.max(1, Number(process.env.TRIAL_DAYS || 7)),
+  },
+});
 
 exports.createCheckoutSession = async (req, res) => {
   try {

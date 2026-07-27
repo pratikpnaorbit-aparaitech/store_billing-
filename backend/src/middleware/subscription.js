@@ -6,7 +6,7 @@ module.exports = function requireSubscription(req, res, next) {
     return res.status(402).json({
       success: false,
       code: "SUBSCRIPTION_REQUIRED",
-      message: "Your free trial has ended. Activate the ₹300 monthly plan to continue.",
+      message: `Your free trial has ended. Activate the ₹${subscription.plan.amount} monthly plan to continue.`,
       data: subscription,
     });
   }
