@@ -4,6 +4,7 @@ const crypto = require("crypto");
 const User = require("../models/User");
 const PendingRegistration = require("../models/PendingRegistration");
 const { sendPasswordResetCode, sendRegistrationCode } = require("../config/mailer");
+const { ensureTrial, subscriptionView, trialDays } = require("../services/subscriptionService");
 
 const publicUser = (user) => ({
   id: user._id,
@@ -11,6 +12,8 @@ const publicUser = (user) => ({
   storeName: user.storeName || user.name || "My Store",
   email: user.email,
   phone: user.phone || "",
+  registeredAt: user.createdAt,
+  subscription: subscriptionView(user),
 });
 const tokenFor = (user) => jwt.sign({ sub: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: "7d", issuer: "smart-billing-api" });
 
@@ -70,6 +73,7 @@ exports.verifyRegistration = async (req, res) => {
       await PendingRegistration.deleteOne({ email });
       return res.status(409).json({ success: false, code: "ACCOUNT_EXISTS", message: "Email already registered. Log in instead." });
     }
+    const trialStartedAt = new Date();
     const user = await User.create({
       name: pending.name,
       storeName: pending.storeName,
@@ -77,6 +81,11 @@ exports.verifyRegistration = async (req, res) => {
       email: pending.email,
       password: pending.passwordHash,
       role: "user",
+      subscription: {
+        status: "trialing",
+        trialStartedAt,
+        trialEndsAt: new Date(trialStartedAt.getTime() + trialDays() * 24 * 60 * 60 * 1000),
+      },
     });
     await PendingRegistration.deleteOne({ _id: pending._id });
     res.status(201).json({ success: true, data: { user: publicUser(user), token: tokenFor(user) } });
@@ -92,6 +101,7 @@ exports.login = async (req, res) => {
     if (!user || !(await bcrypt.compare(String(req.body.password || ""), user.password))) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
+    await ensureTrial(user);
     res.json({ success: true, data: { user: publicUser(user), token: tokenFor(user) } });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -99,6 +109,7 @@ exports.login = async (req, res) => {
 };
 
 exports.me = async (req, res) => {
+  await ensureTrial(req.user);
   res.json({ success: true, data: publicUser(req.user) });
 };
 

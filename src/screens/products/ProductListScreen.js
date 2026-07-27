@@ -7,13 +7,16 @@ import ProductCard from "../../components/products/ProductCard";
 import FloatingActionButton from "../../components/products/FloatingActionButton";
 import FloatingCartBar from "../../components/cart/FloatingCartBar";
 import InventorySummary from "../../components/inventory/InventorySummary";
-import { categories } from "../../data/productData";
 import { useProductStore } from "../../store/productStore";
 
 export default function ProductListScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const products = useProductStore((state) => state.products);
+  const categories = useMemo(
+    () => ["All", ...Array.from(new Set(products.map((item) => item.category).filter(Boolean))).sort()],
+    [products],
+  );
 
   const filteredProducts = useMemo(() => {
     return products.filter((item) => {

@@ -16,10 +16,32 @@ import * as FileSystem from "expo-file-system/legacy";
 import { useProductStore } from "../../store/productStore";
 import { hasRemoteApi } from "../../services/api";
 import { uploadProductImage } from "../../services/uploadApi";
+import { createManualBarcode, isManualBarcode } from "../../utils/products";
+
+const MANUAL_ITEM_OPTIONS = [
+  { name: "Rice", category: "Grains" },
+  { name: "Wheat", category: "Grains" },
+  { name: "Toor Dal", category: "Pulses" },
+  { name: "Moong Dal", category: "Pulses" },
+  { name: "Chana Dal", category: "Pulses" },
+  { name: "Sugar", category: "Grocery" },
+  { name: "Jaggery", category: "Grocery" },
+  { name: "Peanuts", category: "Grocery" },
+  { name: "Onion", category: "Produce" },
+  { name: "Potato", category: "Produce" },
+];
+const CATEGORY_OPTIONS = ["Grains", "Pulses", "Grocery", "Produce", "Spices", "Other"];
+const UNIT_OPTIONS = ["250 g", "500 g", "1 kg", "2 kg", "5 kg", "1 pc", "1 litre"];
+const STOCK_OPTIONS = ["10", "25", "50", "100"];
 
 export default function AddProductScreen({ navigation, route }) {
   const editing = route?.params?.product;
   const draft = route?.params?.draft;
+  const manualMode = Boolean(
+    route?.params?.manual ||
+    isManualBarcode(editing?.barcode) ||
+    isManualBarcode(draft?.barcode),
+  );
   const [image, setImage] = useState(draft?.image || editing?.image || null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -63,7 +85,7 @@ export default function AddProductScreen({ navigation, route }) {
     }
     const product = {
       name: form.name.trim(),
-      barcode: form.barcode.trim() || Date.now().toString(),
+      barcode: form.barcode.trim() || createManualBarcode(),
       category: form.category.trim() || "Grocery",
       price,
       stock,
@@ -110,35 +132,80 @@ export default function AddProductScreen({ navigation, route }) {
   };
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      contentInsetAdjustmentBehavior="automatic"
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.title}>{editing ? "Edit Product" : "Add Product"}</Text>
+        <Text style={styles.title}>
+          {editing
+            ? manualMode ? "Edit No-Barcode Item" : "Edit Product"
+            : manualMode ? "Add No-Barcode Item" : "Add Product"}
+        </Text>
       </View>
 
-      <TouchableOpacity activeOpacity={0.85} style={styles.imagePicker} onPress={pickImage}>
-        {image ? (
-          <Image source={{ uri: image }} style={styles.productImage} />
-        ) : (
-          <>
-            <Ionicons name="camera-outline" size={34} color="#0A46E4" />
-            <Text style={styles.imageTitle}>Add Product Photo</Text>
-            <Text style={styles.imageSub}>Tap to choose from gallery</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {manualMode ? (
+        <View style={styles.manualIntro}>
+          <View style={styles.manualIntroIcon}>
+            <Ionicons name="basket-outline" size={24} color="#0A46E4" />
+          </View>
+          <View style={styles.manualIntroCopy}>
+            <Text style={styles.manualIntroTitle}>Set up once, then tap to bill</Text>
+            <Text style={styles.manualIntroText}>
+              This item will appear under “Add manually” and does not need a barcode.
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity activeOpacity={0.85} style={styles.imagePicker} onPress={pickImage}>
+            {image ? (
+              <Image source={{ uri: image }} style={styles.productImage} />
+            ) : (
+              <>
+                <Ionicons name="camera-outline" size={34} color="#0A46E4" />
+                <Text style={styles.imageTitle}>Add Product Photo</Text>
+                <Text style={styles.imageSub}>Tap to choose from gallery</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-      {image ? (
-        <TouchableOpacity onPress={pickImage}>
-          <Text style={styles.changeImage}>Change Image</Text>
-        </TouchableOpacity>
+          {image ? (
+            <TouchableOpacity onPress={pickImage}>
+              <Text style={styles.changeImage}>Change Image</Text>
+            </TouchableOpacity>
+          ) : null}
+        </>
+      )}
+
+      {manualMode ? (
+        <View style={styles.quickSection}>
+          <Text style={styles.quickTitle}>Common loose items</Text>
+          <View style={styles.quickOptions}>
+            {MANUAL_ITEM_OPTIONS.map((item) => (
+              <QuickOption
+                key={item.name}
+                label={item.name}
+                active={form.name === item.name}
+                onPress={() => setForm((current) => ({
+                  ...current,
+                  name: item.name,
+                  category: item.category,
+                }))}
+              />
+            ))}
+          </View>
+        </View>
       ) : null}
 
       {[
         ["Product Name", "name"],
-        ["Barcode", "barcode"],
+        ...(!manualMode ? [["Barcode (optional)", "barcode"]] : []),
         ["Category", "category"],
         ["Selling Price", "price"],
         ["Stock Quantity", "stock"],
@@ -168,6 +235,42 @@ export default function AddProductScreen({ navigation, route }) {
               </TouchableOpacity>
             ) : null}
           </View>
+          {manualMode && key === "category" ? (
+            <View style={styles.fieldOptions}>
+              {CATEGORY_OPTIONS.map((item) => (
+                <QuickOption
+                  key={item}
+                  label={item}
+                  active={form.category === item}
+                  onPress={() => updateField("category", item)}
+                />
+              ))}
+            </View>
+          ) : null}
+          {manualMode && key === "stock" ? (
+            <View style={styles.fieldOptions}>
+              {STOCK_OPTIONS.map((item) => (
+                <QuickOption
+                  key={item}
+                  label={item}
+                  active={form.stock === item}
+                  onPress={() => updateField("stock", item)}
+                />
+              ))}
+            </View>
+          ) : null}
+          {manualMode && key === "unit" ? (
+            <View style={styles.fieldOptions}>
+              {UNIT_OPTIONS.map((item) => (
+                <QuickOption
+                  key={item}
+                  label={item}
+                  active={form.unit === item}
+                  onPress={() => updateField("unit", item)}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
       ))}
 
@@ -175,6 +278,18 @@ export default function AddProductScreen({ navigation, route }) {
         <Text style={styles.buttonText}>{saving ? "Saving..." : editing ? "Update Product" : "Save Product"}</Text>
       </TouchableOpacity>
     </ScrollView>
+  );
+}
+
+function QuickOption({ label, active, onPress }) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.78}
+      onPress={onPress}
+      style={[styles.quickOption, active && styles.quickOptionActive]}
+    >
+      <Text style={[styles.quickOptionText, active && styles.quickOptionTextActive]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -193,7 +308,43 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     marginRight: 14,
   },
-  title: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
+  title: { flex: 1, fontSize: 26, fontWeight: "900", color: "#0F172A" },
+  manualIntro: {
+    borderRadius: 20,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  manualIntroIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "#DBEAFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  manualIntroCopy: { flex: 1, paddingLeft: 12 },
+  manualIntroTitle: { color: "#1E3A8A", fontWeight: "900" },
+  manualIntroText: { color: "#475569", fontSize: 12, fontWeight: "600", lineHeight: 17, marginTop: 3 },
+  quickSection: { marginBottom: 18 },
+  quickTitle: { color: "#0F172A", fontSize: 13, fontWeight: "800", marginBottom: 9 },
+  quickOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  fieldOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 9 },
+  quickOption: {
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  quickOptionActive: { backgroundColor: "#0A46E4", borderColor: "#0A46E4" },
+  quickOptionText: { color: "#475569", fontSize: 12, fontWeight: "800" },
+  quickOptionTextActive: { color: "#FFFFFF" },
   imagePicker: {
     height: 170,
     borderRadius: 24,

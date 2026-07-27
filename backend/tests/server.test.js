@@ -56,3 +56,18 @@ test("validates registration before accessing the database", () => withServer(as
   });
   assert.equal(verification.status, 400);
 }));
+
+test("protects subscription and admin data endpoints", () => withServer(async (origin) => {
+  const subscription = await fetch(`${origin}/api/subscriptions/status`);
+  assert.equal(subscription.status, 401);
+
+  const dashboard = await fetch(`${origin}/api/admin/dashboard`);
+  assert.equal(dashboard.status, 401);
+
+  const invalidAdmin = await fetch(`${origin}/api/admin/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "wrong@example.com", password: "wrong-password" }),
+  });
+  assert.equal(invalidAdmin.status, 401);
+}));

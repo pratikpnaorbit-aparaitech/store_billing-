@@ -16,6 +16,11 @@ const productionEnv = {
   SMTP_PASS: "pass",
   BREVO_API_KEY: "brevo-key",
   EMAIL_FROM: "billing@example.com",
+  RAZORPAY_KEY_ID: "rzp_test_example",
+  RAZORPAY_KEY_SECRET: "razorpay-secret",
+  RAZORPAY_WEBHOOK_SECRET: "webhook-secret",
+  ADMIN_EMAIL: "admin@example.com",
+  ADMIN_PASSWORD: "strong-admin-password",
 };
 
 test("accepts a complete production environment", () => {

@@ -39,3 +39,25 @@ services:
         sync: false
       - key: EMAIL_FROM
         sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      - key: APP_DEEP_LINK
+        value: "smartbilling://subscription/payment"
+      - key: TRIAL_DAYS
+        value: "7"
+      - key: SUBSCRIPTION_AMOUNT_PAISE
+        value: "30000"
+      - key: RAZORPAY_TOTAL_COUNT
+        value: "120"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: RAZORPAY_PLAN_ID
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

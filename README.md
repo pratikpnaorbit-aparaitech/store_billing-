@@ -2,6 +2,9 @@
 
 Production-oriented Expo SDK 57 billing app for stores. It includes email-OTP account verification, account authentication, tenant-isolated products/customers/orders, barcode scanning, stock-aware cart billing, GST and discounts, PDF receipts, OTP password recovery, reports, and offline read-only cache when the cloud API is temporarily unavailable.
 
+Subscription deployment and Razorpay webhook instructions are in
+[`SUBSCRIPTION_SETUP.md`](./SUBSCRIPTION_SETUP.md).
+
 ## Local development
 
 Requirements: Node.js 22+, npm, and an Android/iOS device or emulator.

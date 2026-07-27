@@ -1,11 +1,19 @@
 import React from "react";
-import { View, Text, FlatList, StyleSheet } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { useOrderStore } from "../../store/orderStore";
+import { formatCurrency } from "../../utils/billing";
 
-export default function OrderHistoryScreen() {
+export default function OrderHistoryScreen({ navigation }) {
   const orders = useOrderStore((state) => state.orders);
+
+  const openOrder = (order) => {
+    navigation.navigate("Receipt", {
+      orderId: String(order.id || order._id),
+      fromHistory: true,
+    });
+  };
 
   return (
     <View style={styles.screen}>
@@ -14,7 +22,7 @@ export default function OrderHistoryScreen() {
 
       <FlatList
         data={orders}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id || item._id || item.invoiceNo)}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -31,7 +39,13 @@ export default function OrderHistoryScreen() {
           );
 
           return (
-            <View style={styles.card}>
+            <TouchableOpacity
+              activeOpacity={0.82}
+              accessibilityRole="button"
+              accessibilityLabel={`Open complete bill ${item.invoiceNo}`}
+              style={styles.card}
+              onPress={() => openOrder(item)}
+            >
               <View style={styles.row}>
                 <View>
                   <Text style={styles.invoice}>{item.invoiceNo}</Text>
@@ -40,7 +54,10 @@ export default function OrderHistoryScreen() {
                   </Text>
                 </View>
 
-                <Text style={styles.amount}>₹{item.total}</Text>
+                <View style={styles.amountColumn}>
+                  <Text style={styles.amount}>{formatCurrency(item.total)}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+                </View>
               </View>
 
               <View style={styles.footer}>
@@ -61,7 +78,7 @@ export default function OrderHistoryScreen() {
 
                 <Text style={styles.items}>{itemCount} items</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
       />
@@ -83,6 +100,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   row: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  amountColumn: { flexDirection: "row", alignItems: "center", gap: 6 },
   invoice: { fontSize: 16, fontWeight: "900", color: "#0F172A" },
   date: { marginTop: 5, fontSize: 12, color: "#64748B", fontWeight: "600" },
   amount: { fontSize: 20, fontWeight: "900", color: "#0A46E4" },

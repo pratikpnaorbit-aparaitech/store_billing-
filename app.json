@@ -20,7 +20,10 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -42,10 +45,15 @@
         }
       ],
       "expo-secure-store",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-web-browser"
     ],
     "extra": {
-      "supportsOfflineMode": true
-    }
+      "supportsOfflineMode": true,
+      "eas": {
+        "projectId": "095ab830-9e52-4603-9af7-546d621b13d1"
+      }
+    },
+    "owner": "yuvi1173"
   }
 }

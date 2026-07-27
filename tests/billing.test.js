@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { addCartItem, calculateBill, createInvoiceNo, getOrderAnalytics, reduceProductStock, roundMoney } from "../src/utils/billing.js";
+import { createManualBarcode, isManualBarcode } from "../src/utils/products.js";
 
 test("calculates subtotal, GST, discount and total with money rounding", () => {
   assert.deepEqual(calculateBill([{ price: 19.99, quantity: 3 }, { price: 10, quantity: 1 }], 5, 5), {
@@ -53,4 +54,11 @@ test("cart addition enforces stock and increments existing lines", () => {
 
 test("completed sale reduces stock without going below zero", () => {
   assert.deepEqual(reduceProductStock([{ id: "p1", stock: 2 }, { id: "p2", stock: 5 }], [{ id: "p1", quantity: 3 }]), [{ id: "p1", stock: 0 }, { id: "p2", stock: 5 }]);
+});
+
+test("creates unique-looking internal codes for products without a barcode", () => {
+  const barcode = createManualBarcode(1722000000000, 0.25);
+  assert.match(barcode, /^manual-1722000000000-[a-z0-9]{6}$/);
+  assert.equal(isManualBarcode(barcode), true);
+  assert.equal(isManualBarcode("8901234567890"), false);
 });

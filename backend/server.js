@@ -10,6 +10,9 @@ const orderRoutes = require("./src/routes/orderRoutes");
 const customerRoutes = require("./src/routes/customerRoutes");
 const authRoutes = require("./src/routes/authRoutes");
 const uploadRoutes = require("./src/routes/uploadRoutes");
+const subscriptionRoutes = require("./src/routes/subscriptionRoutes");
+const adminRoutes = require("./src/routes/adminRoutes");
+const subscriptionController = require("./src/controllers/subscriptionController");
 const mongoose = require("mongoose");
 const validateEnv = require("./src/config/validateEnv");
 const { authConnection, connectAuthDB } = require("./src/config/authDb");
@@ -21,16 +24,25 @@ app.disable("x-powered-by");
 if (process.env.NODE_ENV === "production") app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({ origin: allowedOrigins.includes("*") ? true : allowedOrigins }));
+app.post(
+  "/api/subscriptions/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  subscriptionController.webhook,
+);
 app.use(express.json({ limit: "8mb" }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standardHeaders: "draft-8", legacyHeaders: false });
+const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-8", legacyHeaders: false });
 app.use("/api/auth", authLimiter);
+app.use("/api/admin/login", adminLimiter);
 
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/uploads", uploadRoutes);
+app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/health", (req, res) => {
   res.json({

@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
 import { hasRemoteApi, setApiToken } from "../services/api";
 import { changeAccountPassword, fetchCurrentUser, loginAccount, requestRegistrationCode, verifyRegistrationCode, requestPasswordReset, resetPasswordWithCode, updateAccountProfile } from "../services/authApi";
+import { fetchSubscriptionStatus } from "../services/subscriptionApi";
 import { clearBusinessData } from "../utils/storage";
 
 const AUTH_KEY = "SMART_BILLING_AUTH";
@@ -24,6 +25,32 @@ async function setAuthData(data) {
 async function removeAuthData() {
   if (Platform.OS === "web") return AsyncStorage.removeItem(AUTH_KEY);
   return SecureStore.deleteItemAsync(AUTH_KEY);
+}
+
+function refreshCachedEntitlement(user) {
+  if (!user?.subscription) return user;
+  const now = Date.now();
+  const trialEndsAt = Date.parse(user.subscription.trialEndsAt || "");
+  const currentPeriodEnd = Date.parse(user.subscription.currentPeriodEnd || "");
+  const providerStatus = user.subscription.providerStatus || user.subscription.status;
+  const trialActive = Number.isFinite(trialEndsAt) && trialEndsAt > now
+    && !["authenticated", "active"].includes(providerStatus);
+  const paidActive = ["authenticated", "active"].includes(providerStatus)
+    || (["cancelled", "completed"].includes(providerStatus)
+      && Number.isFinite(currentPeriodEnd)
+      && currentPeriodEnd > now);
+  return {
+    ...user,
+    subscription: {
+      ...user.subscription,
+      trialActive,
+      accessAllowed: trialActive || paidActive,
+      status: paidActive ? "active" : trialActive ? "trial_active" : user.subscription.status,
+      trialDaysRemaining: trialActive
+        ? Math.max(1, Math.ceil((trialEndsAt - now) / (24 * 60 * 60 * 1000)))
+        : 0,
+    },
+  };
 }
 
 export const useAuthStore = create((set, get) => ({
@@ -49,7 +76,7 @@ export const useAuthStore = create((set, get) => ({
         await clearBusinessData();
         set({ user: null, ready: true, connectionStatus: "online" });
       } else {
-        set({ user: saved.user || null, ready: true, connectionStatus: "offline" });
+        set({ user: refreshCachedEntitlement(saved.user) || null, ready: true, connectionStatus: "offline" });
       }
     }
   },
@@ -141,6 +168,16 @@ export const useAuthStore = create((set, get) => ({
     if (!hasRemoteApi) return { ok: false, message: "Use Forgot Password for a local account." };
     try { await changeAccountPassword(currentPassword, newPassword); return { ok: true }; }
     catch (error) { return { ok: false, message: error.message }; }
+  },
+
+  refreshSubscription: async () => {
+    if (!hasRemoteApi || !get().user) return get().user?.subscription || null;
+    const subscription = await fetchSubscriptionStatus();
+    const saved = await getAuthData();
+    const user = { ...get().user, subscription };
+    await setAuthData({ ...(saved || {}), user, session: true });
+    set({ user, connectionStatus: "online" });
+    return subscription;
   },
 
   logout: async () => {
