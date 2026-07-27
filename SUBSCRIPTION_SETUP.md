@@ -6,6 +6,9 @@
 - The app remains usable while the trial is active.
 - After the trial ends, business APIs return `402 SUBSCRIPTION_REQUIRED` and the
   Expo app shows the Razorpay subscription screen.
+- Android/iOS opens Razorpay's native React Native Checkout, matching the
+  `Aparaitech_Bmt_Project-new-feature` mobile integration. Web keeps the hosted
+  checkout fallback.
 - Razorpay Checkout authorises a recurring ₹300/month subscription.
 - Payment signatures are verified on the backend. The Razorpay secret is never
   bundled into the Expo app or landing page.
@@ -26,7 +29,7 @@ PUBLIC_API_URL=https://store-billing-3ze0.onrender.com
 APP_DEEP_LINK=smartbilling://subscription/payment
 
 TRIAL_DAYS=7
-SUBSCRIPTION_AMOUNT_PAISE=100
+SUBSCRIPTION_AMOUNT_PAISE=30000
 RAZORPAY_TOTAL_COUNT=120
 RAZORPAY_KEY_ID=...
 RAZORPAY_KEY_SECRET=...
@@ -40,9 +43,8 @@ ADMIN_PASSWORD=...
 Keep the existing email and optional Cloudinary variables configured as well.
 `CORS_ORIGINS=*` is intentionally rejected in production.
 
-The current deployment uses `100` paise (₹1) only for end-to-end payment testing.
-Restore this to `30000` paise before the production release. When
-`RAZORPAY_PLAN_ID` is blank, the backend creates the monthly plan for the
+The production subscription amount is `30000` paise (₹300). When
+`RAZORPAY_PLAN_ID` is blank, the backend creates the monthly plan for that
 configured amount on the first checkout and stores its plan ID in MongoDB.
 
 ## Razorpay webhook
@@ -87,6 +89,10 @@ VITE_API_URL=https://store-billing-3ze0.onrender.com
 
 After the backend deployment, rebuild the Expo app and landing site so both use
 the production API.
+
+The Android/iOS payment flow uses `react-native-razorpay`, which contains native
+code. It is not available in Expo Go. Create a new development or release build
+after installing or changing this dependency.
 
 ## Verification commands
 

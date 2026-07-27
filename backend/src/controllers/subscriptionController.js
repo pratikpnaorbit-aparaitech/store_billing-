@@ -181,12 +181,25 @@ exports.createCheckoutSession = async (req, res) => {
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     });
     const origin = requestOrigin(req);
+    const displayAmount = new Intl.NumberFormat("en-IN", {
+      maximumFractionDigits: 2,
+    }).format(subscriptionAmount() / 100);
     return res.status(201).json({
       success: true,
       data: {
         checkoutUrl: `${origin}/api/subscriptions/checkout/${token}`,
         redirectUrl: process.env.APP_DEEP_LINK || "smartbilling://subscription/payment",
+        checkoutToken: token,
+        keyId: String(process.env.RAZORPAY_KEY_ID || ""),
         subscriptionId: checkout.id,
+        currency: "INR",
+        name: "Smart Billing",
+        description: `₹${displayAmount} monthly subscription`,
+        prefill: {
+          name: req.user.name || "",
+          email: req.user.email || "",
+          contact: req.user.phone || "",
+        },
       },
     });
   } catch (error) {

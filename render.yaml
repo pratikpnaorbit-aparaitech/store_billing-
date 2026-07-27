@@ -46,7 +46,7 @@ services:
       - key: TRIAL_DAYS
         value: "7"
       - key: SUBSCRIPTION_AMOUNT_PAISE
-        value: "100"
+        value: "30000"
       - key: RAZORPAY_TOTAL_COUNT
         value: "120"
       - key: RAZORPAY_KEY_ID

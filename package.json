@@ -28,6 +28,7 @@
     "react-hook-form": "^7.81.0",
     "react-native": "0.86.0",
     "react-native-gesture-handler": "~2.32.0",
+    "react-native-razorpay": "^3.0.0",
     "react-native-reanimated": "4.5.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -38,7 +39,8 @@
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "export:web": "expo export --platform web --output-dir web-dist",
     "env:restore": "node scripts/restore-env.mjs",
@@ -48,6 +50,15 @@
     "check": "npm run lint && npm run doctor && npm test && npm run export:web"
   },
   "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-razorpay"
+        ]
+      }
+    }
+  },
   "devDependencies": {
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.0"

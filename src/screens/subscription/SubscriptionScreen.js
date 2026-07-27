@@ -3,7 +3,7 @@ import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
-import { createSubscriptionCheckout } from "../../services/subscriptionApi";
+import { createSubscriptionCheckout, verifySubscriptionCheckout } from "../../services/subscriptionApi";
 import { useAuthStore } from "../../store/authStore";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -51,13 +51,36 @@ export default function SubscriptionScreen() {
       if (Platform.OS === "web") {
         await WebBrowser.openBrowserAsync(checkout.checkoutUrl);
       } else {
-        await WebBrowser.openAuthSessionAsync(checkout.checkoutUrl, checkout.redirectUrl, {
-          showInRecents: true,
+        const RazorpayModule = await import("react-native-razorpay");
+        const RazorpayCheckout = RazorpayModule.default || RazorpayModule;
+        if (!RazorpayCheckout?.open) {
+          throw new Error("Razorpay mobile checkout is not available in this build. Install a new development or release build.");
+        }
+        if (!checkout.keyId || !checkout.subscriptionId || !checkout.checkoutToken) {
+          throw new Error("Payment could not be initialized. Please try again.");
+        }
+
+        const payment = await RazorpayCheckout.open({
+          key: checkout.keyId,
+          subscription_id: checkout.subscriptionId,
+          name: checkout.name || "Smart Billing",
+          description: checkout.description || "Monthly subscription",
+          currency: checkout.currency || "INR",
+          prefill: checkout.prefill || {},
+          theme: { color: "#0A46E4" },
+          method: { upi: true, card: true, netbanking: true, wallet: true },
+          modal: { confirm_close: true },
+        });
+        await verifySubscriptionCheckout({
+          token: checkout.checkoutToken,
+          razorpay_payment_id: payment.razorpay_payment_id,
+          razorpay_subscription_id: payment.razorpay_subscription_id || checkout.subscriptionId,
+          razorpay_signature: payment.razorpay_signature,
         });
       }
       await refreshSubscription();
     } catch (error) {
-      setMessage(error.message || "Could not open Razorpay checkout.");
+      setMessage(error.description || error.message || "Could not open Razorpay checkout.");
     } finally {
       setBusy(false);
     }
