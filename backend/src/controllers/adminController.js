@@ -1,8 +1,15 @@
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
+const DeviceSession = require("../models/DeviceSession");
 const SubscriptionEvent = require("../models/SubscriptionEvent");
 const User = require("../models/User");
-const { subscriptionView } = require("../services/subscriptionService");
+const {
+  ACTIVE_STATUSES,
+  listActivePlans,
+  planView,
+  publishPlan,
+  subscriptionView,
+} = require("../services/subscriptionService");
 
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left), "utf8");
@@ -55,6 +62,21 @@ exports.dashboard = async (req, res) => {
       subscription,
     };
   });
+  const deviceSessions = await DeviceSession.find({
+    userId: { $in: rawUsers.map((user) => user._id) },
+    expiresAt: { $gt: new Date() },
+  }).lean();
+  const sessionByUser = new Map(deviceSessions.map((session) => [String(session.userId), session]));
+  users.forEach((user) => {
+    const session = sessionByUser.get(String(user.id));
+    user.deviceSession = session ? {
+      active: true,
+      deviceName: session.deviceName,
+      platform: session.platform,
+      lastSeenAt: session.lastSeenAt,
+      expiresAt: session.expiresAt,
+    } : { active: false };
+  });
 
   const summary = users.reduce((totals, user) => {
     totals.totalUsers += 1;
@@ -71,7 +93,12 @@ exports.dashboard = async (req, res) => {
     paymentAttention: 0,
     monthlyRecurringRevenue: 0,
   });
-  summary.monthlyRecurringRevenue = summary.activeSubscriptions * 300;
+  summary.monthlyRecurringRevenue = Math.round(users.reduce((total, user) => {
+    if (user.subscription.status !== "active") return total;
+    const amount = Number(user.subscription.plan?.amount || 0);
+    const duration = Math.max(1, Number(user.subscription.plan?.durationMonths || 1));
+    return total + (amount / duration);
+  }, 0) * 100) / 100;
 
   const filtered = users.filter((user) => {
     const matchesSearch = !search
@@ -113,4 +140,115 @@ exports.dashboard = async (req, res) => {
       generatedAt: new Date().toISOString(),
     },
   });
+};
+
+exports.plans = async (req, res) => {
+  try {
+    const plans = await listActivePlans();
+    return res.json({ success: true, data: { plans: plans.map(planView) } });
+  } catch (error) {
+    return res.status(503).json({ success: false, message: error.message });
+  }
+};
+
+exports.updatePlan = async (req, res) => {
+  try {
+    const durationMonths = Number(req.params.durationMonths);
+    const amountRupees = Number(req.body.amount);
+    if (!Number.isFinite(amountRupees)) {
+      return res.status(400).json({ success: false, message: "Enter a valid plan price" });
+    }
+    const plan = await publishPlan({
+      durationMonths,
+      amountPaise: Math.round(amountRupees * 100),
+      adminEmail: req.admin.email,
+    });
+    return res.json({
+      success: true,
+      data: {
+        plan: planView(plan),
+        message: "New users will now receive this price. Existing subscriptions keep their original price.",
+      },
+    });
+  } catch (error) {
+    return res.status(error.status || 502).json({
+      success: false,
+      message: error.error?.description || error.message || "Could not publish the plan",
+    });
+  }
+};
+
+exports.extendTrial = async (req, res) => {
+  try {
+    const days = Number(req.body.days);
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      return res.status(400).json({
+        success: false,
+        message: "Trial extension must be between 1 and 365 whole days",
+      });
+    }
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    const providerStatus = String(user.subscription?.status || "").toLowerCase();
+    if (ACTIVE_STATUSES.has(providerStatus)) {
+      return res.status(409).json({
+        success: false,
+        message: "This user already has an active paid subscription",
+      });
+    }
+
+    const now = new Date();
+    const currentEnd = user.subscription?.trialEndsAt
+      ? new Date(user.subscription.trialEndsAt)
+      : now;
+    const base = currentEnd > now ? currentEnd : now;
+    const nextEnd = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
+    user.subscription = {
+      ...(user.subscription?.toObject?.() || user.subscription || {}),
+      status: "trialing",
+      trialStartedAt: user.subscription?.trialStartedAt || user.createdAt || now,
+      trialEndsAt: nextEnd,
+      lastEvent: "trial.extended",
+    };
+    await user.save();
+    await SubscriptionEvent.create({
+      dedupeKey: `trial.extended:${user._id}:${Date.now()}:${crypto.randomBytes(4).toString("hex")}`,
+      userId: user._id,
+      type: "trial.extended",
+      status: "trialing",
+      amount: 0,
+      currency: "INR",
+      occurredAt: now,
+    });
+    return res.json({
+      success: true,
+      data: {
+        userId: user._id,
+        subscription: subscriptionView(user),
+        message: `Free trial extended by ${days} day${days === 1 ? "" : "s"}`,
+      },
+    });
+  } catch (error) {
+    return res.status(error.name === "CastError" ? 404 : 400).json({
+      success: false,
+      message: error.name === "CastError" ? "User not found" : error.message,
+    });
+  }
+};
+
+exports.forceLogout = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).select("_id");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    await DeviceSession.deleteMany({ userId: user._id });
+    return res.json({
+      success: true,
+      data: { message: "The user's active phone has been signed out" },
+    });
+  } catch (error) {
+    return res.status(error.name === "CastError" ? 404 : 400).json({
+      success: false,
+      message: error.name === "CastError" ? "User not found" : error.message,
+    });
+  }
 };

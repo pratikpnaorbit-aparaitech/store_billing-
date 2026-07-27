@@ -4,9 +4,19 @@ const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/$/, "")
 export const API_BASE_URL = configuredUrl;
 export const hasRemoteApi = Boolean(configuredUrl);
 let authToken = null;
+let deviceId = null;
+let authFailureHandler = null;
 
 export function setApiToken(token) {
   authToken = token || null;
+}
+
+export function setApiDeviceId(value) {
+  deviceId = value || null;
+}
+
+export function setApiAuthFailureHandler(handler) {
+  authFailureHandler = typeof handler === "function" ? handler : null;
 }
 
 const api = createAxios({
@@ -17,6 +27,7 @@ const api = createAxios({
 
 api.interceptors.request.use((config) => {
   if (authToken) config.headers.Authorization = `Bearer ${authToken}`;
+  if (deviceId) config.headers["X-Device-Id"] = deviceId;
   return config;
 });
 
@@ -27,6 +38,13 @@ api.interceptors.response.use(
     const normalized = new Error(message);
     normalized.status = error.response?.status;
     normalized.code = error.response?.data?.code;
+    if (
+      normalized.status === 401
+      && ["SESSION_UPGRADE_REQUIRED", "DEVICE_ID_REQUIRED", "DEVICE_SESSION_INVALID", "SESSION_INVALID"]
+        .includes(normalized.code)
+    ) {
+      authFailureHandler?.(normalized);
+    }
     return Promise.reject(normalized);
   },
 );

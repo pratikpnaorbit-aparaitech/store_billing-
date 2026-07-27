@@ -48,7 +48,7 @@ export default function ForgotPasswordScreen({ navigation, route }) {
           <View style={styles.successBox}>
             <View style={styles.successIcon}><Ionicons name="checkmark" size={38} color="#FFFFFF" /></View>
             <Text style={styles.successTitle}>Password updated</Text>
-            <Text style={styles.successText}>Your password has been changed successfully. Log in using the new password.</Text>
+            <Text style={styles.successText}>Your password has been changed and any old phone session has been released. Log in using the new password.</Text>
             <TouchableOpacity style={styles.button} onPress={() => navigation.replace("Login", { email: email.trim().toLowerCase() })}><Text style={styles.buttonText}>GO TO LOGIN</Text></TouchableOpacity>
           </View>
         ) : (

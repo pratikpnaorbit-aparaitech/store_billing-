@@ -1,12 +1,17 @@
 const crypto = require("crypto");
 const Razorpay = require("razorpay");
-const AppConfig = require("../models/AppConfig");
 const SubscriptionEvent = require("../models/SubscriptionEvent");
+const SubscriptionPlan = require("../models/SubscriptionPlan");
 const User = require("../models/User");
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ACTIVE_STATUSES = new Set(["authenticated", "active"]);
 const TERMINAL_STATUSES = new Set(["cancelled", "completed", "expired", "halted"]);
+const DEFAULT_PLANS = [
+  { durationMonths: 1, amountPaise: 100, name: "1 Month Plan" },
+  { durationMonths: 3, amountPaise: 200, name: "3 Month Plan" },
+  { durationMonths: 6, amountPaise: 300, name: "6 Month Plan" },
+];
 
 const trialDays = () => Math.max(1, Number(process.env.TRIAL_DAYS || 7));
 const subscriptionAmount = () => Math.max(100, Number(process.env.SUBSCRIPTION_AMOUNT_PAISE || 30000));
@@ -28,6 +33,34 @@ function trialDates(user, now = new Date()) {
   const endsAt = asDate(user.subscription?.trialEndsAt)
     || new Date(startedAt.getTime() + trialDays() * DAY_MS);
   return { startedAt, endsAt };
+}
+
+function planView(plan) {
+  return {
+    id: String(plan._id || plan.id || plan.key || ""),
+    key: plan.key || "",
+    name: plan.name,
+    durationMonths: Number(plan.durationMonths),
+    amount: Number(plan.amountPaise) / 100,
+    amountPaise: Number(plan.amountPaise),
+    currency: plan.currency || "INR",
+    version: Number(plan.version || 1),
+  };
+}
+
+function userPlanView(subscription = {}) {
+  const amountPaise = Number(subscription.planAmountPaise || subscriptionAmount());
+  const durationMonths = Number(subscription.planDurationMonths || 1);
+  return {
+    id: subscription.catalogPlanId ? String(subscription.catalogPlanId) : "",
+    name: subscription.planName || (durationMonths === 1 ? "Smart Billing Monthly" : `${durationMonths} Month Plan`),
+    durationMonths,
+    amount: amountPaise / 100,
+    amountPaise,
+    currency: subscription.planCurrency || "INR",
+    version: Number(subscription.planVersion || 1),
+    interval: durationMonths === 1 ? "month" : `${durationMonths} months`,
+  };
 }
 
 function subscriptionView(user, now = new Date()) {
@@ -55,13 +88,7 @@ function subscriptionView(user, now = new Date()) {
     trialDaysRemaining: trialActive
       ? Math.max(1, Math.ceil((endsAt.getTime() - now.getTime()) / DAY_MS))
       : 0,
-    plan: {
-      name: "Smart Billing Monthly",
-      amount: subscriptionAmount() / 100,
-      amountPaise: subscriptionAmount(),
-      currency: "INR",
-      interval: "month",
-    },
+    plan: userPlanView(subscription),
     razorpaySubscriptionId: subscription.razorpaySubscriptionId || "",
     currentPeriodStart: asDate(subscription.currentPeriodStart)?.toISOString() || null,
     currentPeriodEnd: currentPeriodEnd?.toISOString() || null,
@@ -94,36 +121,147 @@ function razorpayClient() {
   return new Razorpay({ key_id: keyId, key_secret: keySecret });
 }
 
-async function ensureMonthlyPlan() {
-  const configuredPlanId = String(process.env.RAZORPAY_PLAN_ID || "").trim();
-  if (configuredPlanId) return configuredPlanId;
-
-  const configKey = `razorpay-monthly-${subscriptionAmount()}-inr`;
-  const existing = await AppConfig.findOne({ key: configKey }).lean();
-  if (existing?.value?.planId) return existing.value.planId;
-
-  const plan = await razorpayClient().plans.create({
-    period: "monthly",
-    interval: 1,
-    item: {
-      name: "Smart Billing Monthly",
-      amount: subscriptionAmount(),
-      currency: "INR",
-      description: "Monthly access to Smart Billing after the 7-day free trial",
-    },
-    notes: { product: "smart-billing", billing: "monthly" },
-  });
-  await AppConfig.findOneAndUpdate(
-    { key: configKey },
-    { key: configKey, value: { planId: plan.id } },
-    { upsert: true, returnDocument: "after" },
-  );
-  return plan.id;
+function razorpayMode() {
+  return String(process.env.RAZORPAY_KEY_ID || "").trim().startsWith("rzp_live_")
+    ? "live"
+    : "test";
 }
 
-async function createProviderSubscription(user, requestedPlanId = "") {
-  const planId = requestedPlanId || await ensureMonthlyPlan();
-  const totalCount = Math.min(1200, Math.max(1, Number(process.env.RAZORPAY_TOTAL_COUNT || 120)));
+async function ensureDefaultPlans() {
+  await Promise.all(DEFAULT_PLANS.map(async (defaults) => {
+    const existing = await SubscriptionPlan.findOne({
+      durationMonths: defaults.durationMonths,
+    }).sort({ version: -1 });
+    if (existing) return;
+    try {
+      await SubscriptionPlan.create({
+        key: `${defaults.durationMonths}-month-v1`,
+        ...defaults,
+        currency: "INR",
+        version: 1,
+        active: true,
+        createdBy: "system",
+      });
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+    }
+  }));
+}
+
+async function listActivePlans() {
+  await ensureDefaultPlans();
+  const plans = await SubscriptionPlan.find({ active: true })
+    .sort({ durationMonths: 1, version: -1 })
+    .lean();
+  const latestByDuration = new Map();
+  plans.forEach((plan) => {
+    if (!latestByDuration.has(plan.durationMonths)) latestByDuration.set(plan.durationMonths, plan);
+  });
+  return [...latestByDuration.values()].sort((left, right) => left.durationMonths - right.durationMonths);
+}
+
+async function activePlanForCheckout(requestedPlanId = "") {
+  const plans = await listActivePlans();
+  const requested = String(requestedPlanId || "");
+  const selected = requested
+    ? plans.find((plan) => String(plan._id) === requested || plan.key === requested)
+    : plans.find((plan) => plan.durationMonths === 1);
+  if (!selected) {
+    const error = new Error("The selected subscription plan is no longer available. Refresh and choose another plan.");
+    error.code = "PLAN_NOT_AVAILABLE";
+    error.status = 409;
+    throw error;
+  }
+  return selected;
+}
+
+async function ensureProviderPlan(plan) {
+  const mode = razorpayMode();
+  const existingId = plan.razorpayPlanIds?.[mode];
+  if (existingId) return existingId;
+
+  const providerPlan = await razorpayClient().plans.create({
+    period: "monthly",
+    interval: Number(plan.durationMonths),
+    item: {
+      name: plan.name,
+      amount: Number(plan.amountPaise),
+      currency: plan.currency || "INR",
+      description: `${plan.durationMonths}-month Smart Billing access`,
+    },
+    notes: {
+      product: "smart-billing",
+      durationMonths: String(plan.durationMonths),
+      catalogPlanId: String(plan._id),
+      catalogVersion: String(plan.version),
+    },
+  });
+  await SubscriptionPlan.updateOne(
+    { _id: plan._id },
+    { $set: { [`razorpayPlanIds.${mode}`]: providerPlan.id } },
+  );
+  return providerPlan.id;
+}
+
+async function publishPlan({ durationMonths, amountPaise, adminEmail }) {
+  const duration = Number(durationMonths);
+  const amount = Number(amountPaise);
+  if (![1, 3, 6].includes(duration)) {
+    const error = new Error("Plan duration must be 1, 3 or 6 months");
+    error.status = 400;
+    throw error;
+  }
+  if (!Number.isInteger(amount) || amount < 100 || amount > 100000000) {
+    const error = new Error("Plan price must be between ₹1 and ₹10,00,000");
+    error.status = 400;
+    throw error;
+  }
+
+  await ensureDefaultPlans();
+  const current = await SubscriptionPlan.findOne({ durationMonths: duration, active: true })
+    .sort({ version: -1 });
+  if (current && current.amountPaise === amount) {
+    await ensureProviderPlan(current);
+    return current.toObject();
+  }
+
+  const latest = await SubscriptionPlan.findOne({ durationMonths: duration })
+    .sort({ version: -1 })
+    .lean();
+  const version = Number(latest?.version || 0) + 1;
+  const plan = await SubscriptionPlan.create({
+    key: `${duration}-month-v${version}`,
+    name: `${duration} Month Plan`,
+    durationMonths: duration,
+    amountPaise: amount,
+    currency: "INR",
+    version,
+    active: false,
+    createdBy: adminEmail || "admin",
+  });
+
+  try {
+    await ensureProviderPlan(plan);
+    await SubscriptionPlan.updateMany(
+      { durationMonths: duration, _id: { $ne: plan._id } },
+      { $set: { active: false } },
+    );
+    plan.active = true;
+    await plan.save();
+    return plan.toObject();
+  } catch (error) {
+    await SubscriptionPlan.deleteOne({ _id: plan._id });
+    throw error;
+  }
+}
+
+async function createProviderSubscription(user, plan) {
+  const planId = await ensureProviderPlan(plan);
+  const maximumCycles = Math.max(1, Math.floor(360 / Number(plan.durationMonths)));
+  const totalCount = Math.min(
+    maximumCycles,
+    Math.max(1, Number(process.env.RAZORPAY_TOTAL_COUNT || 120)),
+  );
   const providerSubscription = await razorpayClient().subscriptions.create({
     plan_id: planId,
     total_count: totalCount,
@@ -134,11 +272,20 @@ async function createProviderSubscription(user, requestedPlanId = "") {
       userId: user._id.toString(),
       email: user.email,
       product: "smart-billing",
+      catalogPlanId: String(plan._id),
+      durationMonths: String(plan.durationMonths),
+      catalogVersion: String(plan.version),
     },
   });
   user.subscription = {
     ...(user.subscription?.toObject?.() || user.subscription || {}),
     status: providerSubscription.status || "created",
+    catalogPlanId: plan._id,
+    planVersion: plan.version,
+    planName: plan.name,
+    planDurationMonths: plan.durationMonths,
+    planAmountPaise: plan.amountPaise,
+    planCurrency: plan.currency || "INR",
     planId,
     razorpaySubscriptionId: providerSubscription.id,
     nextChargeAt: unixDate(providerSubscription.charge_at),
@@ -155,20 +302,24 @@ async function createProviderSubscription(user, requestedPlanId = "") {
   return providerSubscription;
 }
 
-async function providerSubscriptionForCheckout(user) {
-  const currentPlanId = await ensureMonthlyPlan();
+async function providerSubscriptionForCheckout(user, requestedPlanId = "") {
+  const plan = await activePlanForCheckout(requestedPlanId);
+  const currentPlanId = await ensureProviderPlan(plan);
   const existingId = user.subscription?.razorpaySubscriptionId;
   const existingStatus = String(user.subscription?.status || "").toLowerCase();
   if (existingId && !TERMINAL_STATUSES.has(existingStatus)) {
     try {
       const existing = await razorpayClient().subscriptions.fetch(existingId);
       const existingIsUsable = !TERMINAL_STATUSES.has(String(existing.status || "").toLowerCase());
-      if (existingIsUsable && existing.plan_id === currentPlanId) return existing;
+      if (existingIsUsable && existing.plan_id === currentPlanId) {
+        return { checkout: existing, plan };
+      }
     } catch {
       // Create a fresh provider subscription if the old one can no longer be fetched.
     }
   }
-  return createProviderSubscription(user, currentPlanId);
+  const checkout = await createProviderSubscription(user, plan);
+  return { checkout, plan };
 }
 
 function verifySubscriptionSignature({ paymentId, subscriptionId, signature }) {
@@ -264,7 +415,10 @@ module.exports = {
   applyProviderSubscription,
   ensureTrial,
   findUserForProviderSubscription,
+  listActivePlans,
+  planView,
   providerSubscriptionForCheckout,
+  publishPlan,
   razorpayClient,
   recordEvent,
   subscriptionAmount,

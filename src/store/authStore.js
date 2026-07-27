@@ -2,8 +2,9 @@ import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { create } from "zustand";
-import { hasRemoteApi, setApiToken } from "../services/api";
-import { changeAccountPassword, fetchCurrentUser, loginAccount, requestRegistrationCode, verifyRegistrationCode, requestPasswordReset, resetPasswordWithCode, updateAccountProfile } from "../services/authApi";
+import { hasRemoteApi, setApiAuthFailureHandler, setApiDeviceId, setApiToken } from "../services/api";
+import { changeAccountPassword, fetchCurrentUser, loginAccount, logoutAccount, requestRegistrationCode, verifyRegistrationCode, requestPasswordReset, resetPasswordWithCode, updateAccountProfile } from "../services/authApi";
+import { getDeviceIdentity } from "../services/deviceIdentity";
 import { fetchSubscriptionStatus } from "../services/subscriptionApi";
 import { clearBusinessData } from "../utils/storage";
 
@@ -64,6 +65,8 @@ export const useAuthStore = create((set, get) => ({
     if (!saved?.session) return set({ ready: true, user: null, connectionStatus: hasRemoteApi ? "online" : "offline" });
     if (!hasRemoteApi) return set({ ready: true, user: saved.user || null, connectionStatus: "offline" });
     if (!saved.token) return set({ ready: true, user: null, connectionStatus: "online" });
+    const device = await getDeviceIdentity();
+    setApiDeviceId(device.deviceId);
     setApiToken(saved.token);
     try {
       const user = await fetchCurrentUser();
@@ -109,7 +112,9 @@ export const useAuthStore = create((set, get) => ({
   verifyRegistration: async (email, code) => {
     if (!hasRemoteApi) return { ok: true };
     try {
-      const { user, token } = await verifyRegistrationCode(email.trim().toLowerCase(), code);
+      const device = await getDeviceIdentity();
+      setApiDeviceId(device.deviceId);
+      const { user, token } = await verifyRegistrationCode(email.trim().toLowerCase(), code, device);
       setApiToken(token);
       await setAuthData({ user, token, session: true, mode: "cloud" });
       set({ user, ready: true, connectionStatus: "online" });
@@ -120,7 +125,9 @@ export const useAuthStore = create((set, get) => ({
   login: async (email, password) => {
     try {
       if (hasRemoteApi) {
-        const { user, token } = await loginAccount(email.trim().toLowerCase(), password);
+        const device = await getDeviceIdentity();
+        setApiDeviceId(device.deviceId);
+        const { user, token } = await loginAccount(email.trim().toLowerCase(), password, device);
         setApiToken(token);
         await setAuthData({ user, token, session: true, mode: "cloud" });
         set({ user, connectionStatus: "online" });
@@ -132,7 +139,7 @@ export const useAuthStore = create((set, get) => ({
       await setAuthData({ ...saved, session: true });
       set({ user: saved.user });
       return { ok: true };
-    } catch (error) { return { ok: false, message: error.message }; }
+    } catch (error) { return { ok: false, message: error.message, code: error.code }; }
   },
 
   resetPassword: async (email, password) => {
@@ -182,6 +189,9 @@ export const useAuthStore = create((set, get) => ({
 
   logout: async () => {
     const saved = await getAuthData();
+    if (hasRemoteApi && saved?.token) {
+      await Promise.allSettled([logoutAccount()]);
+    }
     setApiToken(null);
     set({ user: null, connectionStatus: hasRemoteApi ? "pending" : "offline" });
     if (hasRemoteApi) {
@@ -191,9 +201,19 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
+  invalidateSession: async () => {
+    setApiToken(null);
+    await Promise.allSettled([removeAuthData(), clearBusinessData()]);
+    set({ user: null, ready: true, connectionStatus: hasRemoteApi ? "online" : "offline" });
+  },
+
   deleteAccount: async () => {
     setApiToken(null);
     await removeAuthData();
     set({ user: null, ready: true });
   },
 }));
+
+setApiAuthFailureHandler(() => {
+  useAuthStore.getState().invalidateSession();
+});

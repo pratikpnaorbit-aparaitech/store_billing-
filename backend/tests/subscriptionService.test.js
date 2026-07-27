@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const crypto = require("crypto");
 const test = require("node:test");
 const {
+  planView,
   subscriptionView,
   verifySubscriptionSignature,
 } = require("../src/services/subscriptionService");
@@ -73,4 +74,51 @@ test("uses the server-configured testing price in entitlement responses", () => 
     if (previousAmount === undefined) delete process.env.SUBSCRIPTION_AMOUNT_PAISE;
     else process.env.SUBSCRIPTION_AMOUNT_PAISE = previousAmount;
   }
+});
+
+test("keeps a subscriber's authorised plan snapshot when admin prices change", () => {
+  const view = subscriptionView({
+    ...baseUser,
+    subscription: {
+      ...baseUser.subscription,
+      status: "active",
+      planName: "3 Month Plan",
+      planDurationMonths: 3,
+      planAmountPaise: 45000,
+      planCurrency: "INR",
+      planVersion: 4,
+    },
+  }, new Date("2026-08-01T00:00:00.000Z"));
+  assert.deepEqual(view.plan, {
+    id: "",
+    name: "3 Month Plan",
+    durationMonths: 3,
+    amount: 450,
+    amountPaise: 45000,
+    currency: "INR",
+    version: 4,
+    interval: "3 months",
+  });
+});
+
+test("serializes a dynamic plan for the app without exposing provider secrets", () => {
+  assert.deepEqual(planView({
+    _id: "plan-catalog-id",
+    key: "6-month-v2",
+    name: "6 Month Plan",
+    durationMonths: 6,
+    amountPaise: 300,
+    currency: "INR",
+    version: 2,
+    razorpayPlanIds: { live: "plan_secret_provider_id" },
+  }), {
+    id: "plan-catalog-id",
+    key: "6-month-v2",
+    name: "6 Month Plan",
+    durationMonths: 6,
+    amount: 3,
+    amountPaise: 300,
+    currency: "INR",
+    version: 2,
+  });
 });

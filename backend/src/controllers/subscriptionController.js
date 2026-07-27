@@ -5,6 +5,8 @@ const {
   applyProviderSubscription,
   ensureTrial,
   findUserForProviderSubscription,
+  listActivePlans,
+  planView,
   providerSubscriptionForCheckout,
   razorpayClient,
   recordEvent,
@@ -25,15 +27,16 @@ function safeJson(value) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e");
 }
 
-function checkoutHtml({ checkout, user, token, redirectUrl, nonce }) {
+function checkoutHtml({ checkout, user, token, redirectUrl, nonce, plan }) {
   const displayAmount = new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 2,
-  }).format(subscriptionAmount() / 100);
+  }).format(Number(plan.amountPaise) / 100);
+  const billingLabel = plan.durationMonths === 1 ? "month" : `${plan.durationMonths} months`;
   const options = {
     key: String(process.env.RAZORPAY_KEY_ID || ""),
     subscription_id: checkout.id,
     name: "Smart Billing",
-    description: `₹${displayAmount} monthly subscription`,
+    description: `₹${displayAmount} every ${billingLabel}`,
     prefill: {
       name: user.name,
       email: user.email,
@@ -69,9 +72,9 @@ function checkoutHtml({ checkout, user, token, redirectUrl, nonce }) {
     <div class="brand">SMART BILLING</div>
     <div class="icon">₹</div>
     <h1>Continue with Smart Billing</h1>
-    <p class="sub">Your 7-day free trial is complete. Authorise the monthly plan to keep billing, inventory and reports active.</p>
-    <div class="price"><strong>₹${displayAmount}</strong><span>/ month</span></div>
-    <ul class="features"><li>Recurring monthly access</li><li>Secure Razorpay checkout</li><li>Cancel from Razorpay when required</li></ul>
+    <p class="sub">Your free trial is complete. Authorise this plan to keep billing, inventory and reports active.</p>
+    <div class="price"><strong>₹${displayAmount}</strong><span>/ ${billingLabel}</span></div>
+    <ul class="features"><li>Recurring ${billingLabel} access</li><li>Secure Razorpay checkout</li><li>Cancel from Razorpay when required</li></ul>
     <button id="pay">Continue to Razorpay</button>
     <button id="back" class="secondary" type="button">Back to app</button>
     <div id="message" class="message"></div>
@@ -151,6 +154,24 @@ exports.getPlan = (req, res) => res.json({
   },
 });
 
+exports.getPlans = async (req, res) => {
+  try {
+    const plans = await listActivePlans();
+    return res.json({
+      success: true,
+      data: {
+        plans: plans.map(planView),
+        trialDays: Math.max(1, Number(process.env.TRIAL_DAYS || 7)),
+      },
+    });
+  } catch (error) {
+    return res.status(503).json({
+      success: false,
+      message: error.message || "Subscription plans are temporarily unavailable",
+    });
+  }
+};
+
 exports.createCheckoutSession = async (req, res) => {
   try {
     await ensureTrial(req.user);
@@ -172,18 +193,26 @@ exports.createCheckoutSession = async (req, res) => {
       });
     }
 
-    const checkout = await providerSubscriptionForCheckout(req.user);
+    const { checkout, plan } = await providerSubscriptionForCheckout(
+      req.user,
+      req.body.planId,
+    );
     const token = crypto.randomBytes(32).toString("hex");
     await CheckoutSession.create({
       tokenHash: sha256(token),
       userId: req.userId,
       razorpaySubscriptionId: checkout.id,
+      catalogPlanId: plan._id,
+      planName: plan.name,
+      planDurationMonths: plan.durationMonths,
+      planAmountPaise: plan.amountPaise,
       expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     });
     const origin = requestOrigin(req);
     const displayAmount = new Intl.NumberFormat("en-IN", {
       maximumFractionDigits: 2,
-    }).format(subscriptionAmount() / 100);
+    }).format(Number(plan.amountPaise) / 100);
+    const billingLabel = plan.durationMonths === 1 ? "month" : `${plan.durationMonths} months`;
     return res.status(201).json({
       success: true,
       data: {
@@ -194,7 +223,8 @@ exports.createCheckoutSession = async (req, res) => {
         subscriptionId: checkout.id,
         currency: "INR",
         name: "Smart Billing",
-        description: `₹${displayAmount} monthly subscription`,
+        description: `₹${displayAmount} every ${billingLabel}`,
+        plan: planView(plan),
         prefill: {
           name: req.user.name || "",
           email: req.user.email || "",
@@ -246,6 +276,11 @@ exports.showCheckout = async (req, res) => {
     token: req.params.token,
     redirectUrl: process.env.APP_DEEP_LINK || "smartbilling://subscription/payment",
     nonce,
+    plan: {
+      name: session.planName || user.subscription?.planName || "Smart Billing Plan",
+      durationMonths: session.planDurationMonths || user.subscription?.planDurationMonths || 1,
+      amountPaise: session.planAmountPaise || user.subscription?.planAmountPaise || subscriptionAmount(),
+    },
   }));
 };
 

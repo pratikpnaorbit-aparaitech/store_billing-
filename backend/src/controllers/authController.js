@@ -1,9 +1,16 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const DeviceSession = require("../models/DeviceSession");
 const User = require("../models/User");
 const PendingRegistration = require("../models/PendingRegistration");
 const { sendPasswordResetCode, sendRegistrationCode } = require("../config/mailer");
+const {
+  establishDeviceSession,
+  hashValue,
+  normalizeDevice,
+  revokeUserSessions,
+} = require("../services/deviceSessionService");
 const { ensureTrial, subscriptionView, trialDays } = require("../services/subscriptionService");
 
 const publicUser = (user) => ({
@@ -15,7 +22,11 @@ const publicUser = (user) => ({
   registeredAt: user.createdAt,
   subscription: subscriptionView(user),
 });
-const tokenFor = (user) => jwt.sign({ sub: user._id.toString() }, process.env.JWT_SECRET, { expiresIn: "7d", issuer: "smart-billing-api" });
+const tokenFor = (user, session) => jwt.sign(
+  { sub: user._id.toString(), sid: session.sessionId },
+  process.env.JWT_SECRET,
+  { expiresIn: `${session.sessionDays}d`, issuer: "smart-billing-api" },
+);
 
 const hashCode = (code) => crypto.createHash("sha256").update(String(code)).digest("hex");
 
@@ -63,6 +74,7 @@ exports.verifyRegistration = async (req, res) => {
     if (!/^\S+@\S+\.\S+$/.test(email) || !/^\d{6}$/.test(code)) {
       return res.status(400).json({ success: false, message: "Enter the email and 6 digit verification code" });
     }
+    normalizeDevice(req.body);
     const pending = await PendingRegistration.findOne({
       email,
       codeHash: hashCode(code),
@@ -88,9 +100,18 @@ exports.verifyRegistration = async (req, res) => {
       },
     });
     await PendingRegistration.deleteOne({ _id: pending._id });
-    res.status(201).json({ success: true, data: { user: publicUser(user), token: tokenFor(user) } });
+    const session = await establishDeviceSession(user, req.body);
+    res.status(201).json({
+      success: true,
+      data: { user: publicUser(user), token: tokenFor(user, session) },
+    });
   } catch (error) {
-    res.status(error.code === 11000 ? 409 : 400).json({ success: false, code: error.code === 11000 ? "ACCOUNT_EXISTS" : "VERIFICATION_FAILED", message: error.code === 11000 ? "Email already registered" : error.message });
+    const duplicate = error.code === 11000;
+    res.status(duplicate ? 409 : (error.status || 400)).json({
+      success: false,
+      code: duplicate ? "ACCOUNT_EXISTS" : (error.code || "VERIFICATION_FAILED"),
+      message: duplicate ? "Email already registered" : error.message,
+    });
   }
 };
 
@@ -102,10 +123,26 @@ exports.login = async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
     }
     await ensureTrial(user);
-    res.json({ success: true, data: { user: publicUser(user), token: tokenFor(user) } });
+    const session = await establishDeviceSession(user, req.body);
+    res.json({
+      success: true,
+      data: { user: publicUser(user), token: tokenFor(user, session) },
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    res.status(error.status || 400).json({
+      success: false,
+      code: error.code || "LOGIN_FAILED",
+      message: error.message,
+    });
   }
+};
+
+exports.logout = async (req, res) => {
+  await DeviceSession.deleteOne({
+    userId: req.userId,
+    sessionIdHash: hashValue(req.authSessionId),
+  });
+  return res.json({ success: true });
 };
 
 exports.me = async (req, res) => {
@@ -168,5 +205,6 @@ exports.resetPasswordWithCode = async (req, res) => {
   user.passwordResetHash = null;
   user.passwordResetExpires = null;
   await user.save();
+  await revokeUserSessions(user._id);
   res.json({ success: true });
 };

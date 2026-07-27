@@ -19,7 +19,12 @@ export default function LoginScreen({ navigation, route }) {
     setBusy(true);
     const result = await login(email, password);
     setBusy(false);
-    if (!result.ok) return Alert.alert("Login failed", result.message);
+    if (!result.ok) {
+      const title = result.code === "DEVICE_ALREADY_ACTIVE"
+        ? "Account active on another phone"
+        : "Login failed";
+      return Alert.alert(title, result.message);
+    }
     navigation.reset({ index: 0, routes: [{ name: "Main" }] });
   };
 
