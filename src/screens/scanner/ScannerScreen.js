@@ -410,45 +410,46 @@ export default function ScannerScreen({ navigation, route }) {
               </Text>
             </View>
 
-            <View
-              style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16) }]}
-            >
-          {cameraError ? (
-            <View style={styles.errorBox}>
-              <Ionicons name="warning-outline" size={19} color="#991B1B" />
-              <Text style={styles.errorText} numberOfLines={2}>{cameraError}</Text>
-              <TouchableOpacity onPress={retryCamera}>
-                <Text style={styles.retryText}>Retry</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+          </View>
 
-          {route?.params?.mode !== "fillBarcode" ? (
-            <View style={styles.saleActions}>
-              <TouchableOpacity
-                activeOpacity={0.82}
-                style={styles.manualButton}
-                onPress={openManualPicker}
-              >
-                <View style={styles.manualButtonIcon}>
-                  <Ionicons name="basket-outline" size={23} color="#0A46E4" />
-                </View>
-                <View style={styles.manualButtonCopy}>
-                  <Text style={styles.manualButtonTitle}>No barcode? Add manually</Text>
-                  <Text style={styles.manualButtonText}>Choose an item or create a new one</Text>
-                </View>
-                <Ionicons name="chevron-up" size={20} color="#64748B" />
-              </TouchableOpacity>
-
-              {cartCount ? (
-                <TouchableOpacity style={styles.cartButton} onPress={goToBilling}>
-                  <Ionicons name="cart" size={20} color="#FFFFFF" />
-                  <Text style={styles.cartButtonText}>{cartCount}</Text>
+          <View
+            style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16) }]}
+          >
+            {cameraError ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="warning-outline" size={19} color="#991B1B" />
+                <Text style={styles.errorText} numberOfLines={2}>{cameraError}</Text>
+                <TouchableOpacity onPress={retryCamera}>
+                  <Text style={styles.retryText}>Retry</Text>
                 </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
-            </View>
+              </View>
+            ) : null}
+
+            {route?.params?.mode !== "fillBarcode" ? (
+              <View style={styles.saleActions}>
+                <TouchableOpacity
+                  activeOpacity={0.82}
+                  style={styles.manualButton}
+                  onPress={openManualPicker}
+                >
+                  <View style={styles.manualButtonIcon}>
+                    <Ionicons name="basket-outline" size={23} color="#0A46E4" />
+                  </View>
+                  <View style={styles.manualButtonCopy}>
+                    <Text style={styles.manualButtonTitle}>No barcode? Add manually</Text>
+                    <Text style={styles.manualButtonText}>Choose an item or create a new one</Text>
+                  </View>
+                  <Ionicons name="chevron-up" size={20} color="#64748B" />
+                </TouchableOpacity>
+
+                {cartCount ? (
+                  <TouchableOpacity style={styles.cartButton} onPress={goToBilling}>
+                    <Ionicons name="cart" size={20} color="#FFFFFF" />
+                    <Text style={styles.cartButtonText}>{cartCount}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         </View>
       </Modal>
