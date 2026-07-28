@@ -30,7 +30,23 @@ const MANUAL_ITEM_OPTIONS = [
   { name: "Onion", category: "Produce" },
   { name: "Potato", category: "Produce" },
 ];
-const CATEGORY_OPTIONS = ["Grains", "Pulses", "Grocery", "Produce", "Spices", "Other"];
+const CATEGORY_OPTIONS = [
+  "Grocery",
+  "Grains",
+  "Pulses",
+  "Dairy",
+  "Drinks",
+  "Snacks",
+  "Produce",
+  "Bakery",
+  "Frozen",
+  "Spices",
+  "Personal Care",
+  "Household",
+  "Stationery",
+  "Medicine",
+  "Other",
+];
 const UNIT_OPTIONS = ["250 g", "500 g", "1 kg", "2 kg", "5 kg", "1 pc", "1 litre"];
 const STOCK_OPTIONS = ["10", "25", "50", "100"];
 
@@ -55,6 +71,9 @@ export default function AddProductScreen({ navigation, route }) {
 
   const addProduct = useProductStore((state) => state.addProduct);
   const updateProduct = useProductStore((state) => state.updateProduct);
+  const categoryOptions = form.category && !CATEGORY_OPTIONS.includes(form.category)
+    ? [form.category, ...CATEGORY_OPTIONS]
+    : CATEGORY_OPTIONS;
 
   const updateField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -185,8 +204,16 @@ export default function AddProductScreen({ navigation, route }) {
 
       {manualMode ? (
         <View style={styles.quickSection}>
-          <Text style={styles.quickTitle}>Common loose items</Text>
-          <View style={styles.quickOptions}>
+          <View style={styles.optionHeading}>
+            <Text style={styles.quickTitle}>Common loose items</Text>
+            <Text style={styles.swipeHint}>Swipe & tap</Text>
+          </View>
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickOptions}
+          >
             {MANUAL_ITEM_OPTIONS.map((item) => (
               <QuickOption
                 key={item.name}
@@ -199,7 +226,7 @@ export default function AddProductScreen({ navigation, route }) {
                 }))}
               />
             ))}
-          </View>
+          </ScrollView>
         </View>
       ) : null}
 
@@ -212,32 +239,20 @@ export default function AddProductScreen({ navigation, route }) {
         ["Unit", "unit"],
       ].map(([label, key]) => (
         <View key={key} style={styles.field}>
-          <Text style={styles.label}>{label}</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              value={form[key]}
-              onChangeText={(text) => updateField(key, text)}
-              placeholder={label}
-              placeholderTextColor="#94A3B8"
-              style={styles.input}
-              keyboardType={key === "price" || key === "stock" ? "numeric" : "default"}
-            />
-            {key === "barcode" ? (
-              <TouchableOpacity
-                style={styles.scanBtn}
-                onPress={() => navigation.navigate("BarcodeScanner", {
-                  mode: "fillBarcode",
-                  product: editing,
-                  draft: { ...form, image },
-                })}
-              >
-                <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+          <View style={styles.optionHeading}>
+            <Text style={styles.label}>{label}</Text>
+            {["category", "stock", "unit"].includes(key) ? (
+              <Text style={styles.swipeHint}>Swipe & tap</Text>
             ) : null}
           </View>
-          {manualMode && key === "category" ? (
-            <View style={styles.fieldOptions}>
-              {CATEGORY_OPTIONS.map((item) => (
+          {key === "category" ? (
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.fieldOptions}
+            >
+              {categoryOptions.map((item) => (
                 <QuickOption
                   key={item}
                   label={item}
@@ -245,10 +260,38 @@ export default function AddProductScreen({ navigation, route }) {
                   onPress={() => updateField("category", item)}
                 />
               ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.inputRow}>
+              <TextInput
+                value={form[key]}
+                onChangeText={(text) => updateField(key, text)}
+                placeholder={label}
+                placeholderTextColor="#94A3B8"
+                style={styles.input}
+                keyboardType={key === "price" || key === "stock" ? "numeric" : "default"}
+              />
+              {key === "barcode" ? (
+                <TouchableOpacity
+                  style={styles.scanBtn}
+                  onPress={() => navigation.navigate("BarcodeScanner", {
+                    mode: "fillBarcode",
+                    product: editing,
+                    draft: { ...form, image },
+                  })}
+                >
+                  <Ionicons name="scan-outline" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : null}
             </View>
-          ) : null}
-          {manualMode && key === "stock" ? (
-            <View style={styles.fieldOptions}>
+          )}
+          {key === "stock" ? (
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.fieldOptions}
+            >
               {STOCK_OPTIONS.map((item) => (
                 <QuickOption
                   key={item}
@@ -257,10 +300,15 @@ export default function AddProductScreen({ navigation, route }) {
                   onPress={() => updateField("stock", item)}
                 />
               ))}
-            </View>
+            </ScrollView>
           ) : null}
-          {manualMode && key === "unit" ? (
-            <View style={styles.fieldOptions}>
+          {key === "unit" ? (
+            <ScrollView
+              horizontal
+              nestedScrollEnabled
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.fieldOptions}
+            >
               {UNIT_OPTIONS.map((item) => (
                 <QuickOption
                   key={item}
@@ -269,7 +317,7 @@ export default function AddProductScreen({ navigation, route }) {
                   onPress={() => updateField("unit", item)}
                 />
               ))}
-            </View>
+            </ScrollView>
           ) : null}
         </View>
       ))}
@@ -331,9 +379,23 @@ const styles = StyleSheet.create({
   manualIntroTitle: { color: "#1E3A8A", fontWeight: "900" },
   manualIntroText: { color: "#475569", fontSize: 12, fontWeight: "600", lineHeight: 17, marginTop: 3 },
   quickSection: { marginBottom: 18 },
-  quickTitle: { color: "#0F172A", fontSize: 13, fontWeight: "800", marginBottom: 9 },
-  quickOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  fieldOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 9 },
+  optionHeading: {
+    minHeight: 22,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  quickTitle: { color: "#0F172A", fontSize: 13, fontWeight: "800" },
+  swipeHint: { color: "#0A46E4", fontSize: 10, fontWeight: "800" },
+  quickOptions: { flexDirection: "row", gap: 8, paddingTop: 9, paddingRight: 18 },
+  fieldOptions: {
+    flexDirection: "row",
+    gap: 8,
+    paddingTop: 9,
+    paddingRight: 18,
+    paddingBottom: 2,
+  },
   quickOption: {
     borderRadius: 999,
     backgroundColor: "#FFFFFF",
@@ -361,11 +423,12 @@ const styles = StyleSheet.create({
   imageSub: { marginTop: 4, fontSize: 12, fontWeight: "600", color: "#64748B" },
   changeImage: { textAlign: "center", color: "#0A46E4", fontWeight: "900", marginBottom: 18 },
   field: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: "800", color: "#0F172A", marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: "800", color: "#0F172A" },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    marginTop: 8,
   },
   input: {
     flex: 1,

@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const DeviceSession = require("../models/DeviceSession");
 const SubscriptionEvent = require("../models/SubscriptionEvent");
 const User = require("../models/User");
+const { matchesAdminStatus } = require("../utils/adminStatus");
 const {
   ACTIVE_STATUSES,
   applyProviderSubscription,
@@ -95,7 +96,10 @@ exports.dashboard = async (req, res) => {
     totals.totalUsers += 1;
     if (user.subscription.status === "trial_active") totals.trialActive += 1;
     if (user.subscription.status === "trial_expired") totals.trialExpired += 1;
-    if (user.subscription.status === "active") totals.activeSubscriptions += 1;
+    if (user.subscription.status === "active") {
+      totals.activeSubscriptions += 1;
+      if (!user.accountAccess.paused) totals.activeUnpausedSubscriptions += 1;
+    }
     if (["pending", "halted"].includes(user.subscription.providerStatus)) totals.paymentAttention += 1;
     if (user.subscription.priceChange?.required) totals.priceUpdatesPending += 1;
     if (user.accountAccess.paused) totals.pausedAccounts += 1;
@@ -105,6 +109,7 @@ exports.dashboard = async (req, res) => {
     trialActive: 0,
     trialExpired: 0,
     activeSubscriptions: 0,
+    activeUnpausedSubscriptions: 0,
     paymentAttention: 0,
     monthlyRecurringRevenue: 0,
     priceUpdatesPending: 0,
@@ -121,11 +126,7 @@ exports.dashboard = async (req, res) => {
     const matchesSearch = !search
       || [user.name, user.storeName, user.email, user.phone]
         .some((value) => String(value || "").toLowerCase().includes(search));
-    const matchesStatus = statusFilter === "all"
-      || (statusFilter === "admin_paused" && user.accountAccess.paused)
-      || (statusFilter === "price_change" && user.subscription.priceChange?.required)
-      || user.subscription.status === statusFilter
-      || user.subscription.providerStatus === statusFilter;
+    const matchesStatus = matchesAdminStatus(user, statusFilter);
     return matchesSearch && matchesStatus;
   });
   const start = (page - 1) * limit;

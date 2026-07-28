@@ -4,6 +4,7 @@ import {
   Animated,
   Easing,
   Image,
+  Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -49,6 +50,7 @@ export default function ScannerScreen({ navigation, route }) {
   const [successScale] = useState(() => new Animated.Value(0.7));
   const [checkScale] = useState(() => new Animated.Value(0));
   const [pulse] = useState(() => new Animated.Value(0));
+  const [scanLineProgress] = useState(() => new Animated.Value(0));
   const successTimer = useRef(null);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
@@ -80,6 +82,33 @@ export default function ScannerScreen({ navigation, route }) {
       unsubscribeBlur();
     };
   }, [navigation]);
+
+  useEffect(() => {
+    if (!isFocused || !cameraReady || scanned || manualPickerVisible) {
+      scanLineProgress.stopAnimation();
+      scanLineProgress.setValue(0);
+      return undefined;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanLineProgress, {
+          toValue: 1,
+          duration: 1700,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanLineProgress, {
+          toValue: 0,
+          duration: 1700,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [cameraReady, isFocused, manualPickerVisible, scanLineProgress, scanned]);
 
   const playSuccess = (details, onComplete) => {
     clearTimeout(successTimer.current);
@@ -116,17 +145,50 @@ export default function ScannerScreen({ navigation, route }) {
         useNativeDriver: true,
       }),
     ]).start();
-    successTimer.current = setTimeout(() => {
-      Animated.timing(successOpacity, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: true,
-      }).start(() => {
-        setScanSuccess(null);
-        if (onComplete) onComplete();
-        else setScanned(false);
-      });
-    }, 1350);
+    if (onComplete) {
+      successTimer.current = setTimeout(() => {
+        Animated.timing(successOpacity, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }).start(() => {
+          setScanSuccess(null);
+          onComplete();
+        });
+      }, 1200);
+    }
+  };
+
+  const closeScanSuccess = (scanNext = false) => {
+    clearTimeout(successTimer.current);
+    Animated.timing(successOpacity, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setScanSuccess(null);
+      if (scanNext) setScanned(false);
+    });
+  };
+
+  const scanNextProduct = () => closeScanSuccess(true);
+
+  const openManualAfterScan = () => {
+    const barcode = scanSuccess?.barcode;
+    const productMissing = scanSuccess?.productMissing;
+    clearTimeout(successTimer.current);
+    setScanSuccess(null);
+    if (productMissing && barcode) {
+      navigation.navigate("AddProduct", { barcode });
+      return;
+    }
+    openManualPicker();
+  };
+
+  const goToBillingAfterScan = () => {
+    clearTimeout(successTimer.current);
+    setScanSuccess(null);
+    goToBilling();
   };
 
   const retryCamera = () => {
@@ -161,9 +223,9 @@ export default function ScannerScreen({ navigation, route }) {
     if (scanned) return;
 
     setScanned(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     if (route?.params?.mode === "fillBarcode") {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       playSuccess({
         title: "Barcode captured",
         detail: String(data),
@@ -182,20 +244,27 @@ export default function ScannerScreen({ navigation, route }) {
     if (product) {
       const result = addToCart(product);
       if (!result.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
         Alert.alert("Cannot add product", result.message, [
           { text: "Scan Again", onPress: () => setScanned(false) },
         ]);
         return;
       }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       playSuccess({
         title: "Scan successful",
         detail: `${product.name} added to bill`,
+        eyebrow: "PRODUCT ADDED",
       });
     } else {
-      Alert.alert("Product Not Found", `Barcode: ${data}`, [
-        { text: "Scan Again", onPress: () => setScanned(false) },
-        { text: "Add Product", onPress: () => navigation.navigate("AddProduct", { barcode: data }) },
-      ]);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      playSuccess({
+        title: "Barcode scanned",
+        detail: "This product is not saved yet. Add its details once to use it in future bills.",
+        eyebrow: "NEW BARCODE",
+        barcode: String(data),
+        productMissing: true,
+      });
     }
   };
 
@@ -272,8 +341,17 @@ export default function ScannerScreen({ navigation, route }) {
         )}
       </View>
 
-      <View style={styles.overlay}>
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
+      <Modal
+        visible={showCamera && !scanSuccess}
+        transparent
+        statusBarTranslucent
+        animationType="none"
+        presentationStyle="overFullScreen"
+        onRequestClose={() => navigation.goBack()}
+      >
+        <View style={styles.modalOverlayRoot}>
+          <View pointerEvents="box-none" style={styles.overlay}>
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) }]}>
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={23} color="#FFFFFF" />
           </TouchableOpacity>
@@ -291,32 +369,50 @@ export default function ScannerScreen({ navigation, route }) {
           </View>
         </View>
 
-        <View style={styles.scannerContent}>
-          <View
-            style={[
-              styles.scanBox,
-              { width: scanFrameWidth, height: scanFrameHeight },
-            ]}
-          >
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
-          </View>
+            <View style={styles.scannerContent}>
+              <View
+                style={[
+                  styles.scanBox,
+                  { width: scanFrameWidth, height: scanFrameHeight },
+                ]}
+              >
+                <View style={styles.scanFrameSurface} />
+                <View style={styles.scanFrameLabel}>
+                  <Ionicons name="barcode-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.scanFrameLabelText}>BARCODE AREA</Text>
+                </View>
+                <Animated.View
+                  style={[
+                    styles.scanLine,
+                    {
+                      transform: [{
+                        translateY: scanLineProgress.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [9, scanFrameHeight - 12],
+                        }),
+                      }],
+                    },
+                  ]}
+                />
+                <View style={[styles.corner, styles.topLeft]} />
+                <View style={[styles.corner, styles.topRight]} />
+                <View style={[styles.corner, styles.bottomLeft]} />
+                <View style={[styles.corner, styles.bottomRight]} />
+              </View>
 
-          <Text
-            style={[
-              styles.hint,
-              { top: "50%", marginTop: scanFrameHeight / 2 + 24 },
-            ]}
-          >
-            {cameraReady ? "Place barcode inside the frame" : "Starting camera preview..."}
-          </Text>
-        </View>
+              <Text
+                style={[
+                  styles.hint,
+                  { top: "50%", marginTop: scanFrameHeight / 2 + 24 },
+                ]}
+              >
+                {cameraReady ? "Place the full barcode inside all four corners" : "Starting camera preview..."}
+              </Text>
+            </View>
 
-        <View
-          style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16) }]}
-        >
+            <View
+              style={[styles.bottomActions, { paddingBottom: Math.max(insets.bottom, 16) }]}
+            >
           {cameraError ? (
             <View style={styles.errorBox}>
               <Ionicons name="warning-outline" size={19} color="#991B1B" />
@@ -338,8 +434,8 @@ export default function ScannerScreen({ navigation, route }) {
                   <Ionicons name="basket-outline" size={23} color="#0A46E4" />
                 </View>
                 <View style={styles.manualButtonCopy}>
-                  <Text style={styles.manualButtonTitle}>No barcode?</Text>
-                  <Text style={styles.manualButtonText}>Tap to add rice, dal and other items</Text>
+                  <Text style={styles.manualButtonTitle}>No barcode? Add manually</Text>
+                  <Text style={styles.manualButtonText}>Choose an item or create a new one</Text>
                 </View>
                 <Ionicons name="chevron-up" size={20} color="#64748B" />
               </TouchableOpacity>
@@ -352,8 +448,10 @@ export default function ScannerScreen({ navigation, route }) {
               ) : null}
             </View>
           ) : null}
+            </View>
+          </View>
         </View>
-      </View>
+      </Modal>
 
       <ManualProductPicker
         visible={manualPickerVisible}
@@ -368,59 +466,101 @@ export default function ScannerScreen({ navigation, route }) {
         }}
       />
       {scanSuccess ? (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.successBackdrop,
-            {
-              opacity: successOpacity,
-              transform: [{ scale: successScale }],
-            },
-          ]}
+        <Modal
+          visible
+          transparent
+          statusBarTranslucent
+          animationType="none"
+          presentationStyle="overFullScreen"
+          onRequestClose={scanNextProduct}
         >
-          <View style={styles.successCard}>
-            <View style={styles.successLogoWrap}>
-              <Image source={require("../../assets/images/logo.png")} style={styles.successLogo} />
-              <Animated.View
-                style={[
-                  styles.pulseRing,
-                  {
-                    opacity: pulse.interpolate({
-                      inputRange: [0, 0.65, 1],
-                      outputRange: [0.7, 0.2, 0],
-                    }),
-                    transform: [{
-                      scale: pulse.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.7, 1.65],
+          <Animated.View
+            style={[
+              styles.successBackdrop,
+              {
+                opacity: successOpacity,
+                transform: [{ scale: successScale }],
+              },
+            ]}
+          >
+            <View style={styles.successCard}>
+              <View style={styles.successLogoWrap}>
+                <Image source={require("../../assets/images/logo.png")} style={styles.successLogo} />
+                <Animated.View
+                  style={[
+                    styles.pulseRing,
+                    {
+                      opacity: pulse.interpolate({
+                        inputRange: [0, 0.65, 1],
+                        outputRange: [0.7, 0.2, 0],
                       }),
-                    }],
-                  },
-                ]}
-              />
-              <Animated.View style={[styles.checkBadge, { transform: [{ scale: checkScale }] }]}>
-                <Ionicons name="checkmark" size={30} color="#FFFFFF" />
-              </Animated.View>
+                      transform: [{
+                        scale: pulse.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.7, 1.65],
+                        }),
+                      }],
+                    },
+                  ]}
+                />
+                <Animated.View style={[styles.checkBadge, { transform: [{ scale: checkScale }] }]}>
+                  <Ionicons name="checkmark" size={30} color="#FFFFFF" />
+                </Animated.View>
+              </View>
+              {scanSuccess.eyebrow ? (
+                <Text style={styles.successEyebrow}>{scanSuccess.eyebrow}</Text>
+              ) : null}
+              <Text style={styles.successTitle}>{scanSuccess.title}</Text>
+              <Text style={styles.successDetail}>{scanSuccess.detail}</Text>
+
+              {route?.params?.mode === "fillBarcode" ? (
+                <View style={styles.successProgress}>
+                  <Animated.View
+                    style={[
+                      styles.successProgressFill,
+                      {
+                        transform: [{
+                          scaleX: pulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.05, 1],
+                          }),
+                        }],
+                      },
+                    ]}
+                  />
+                </View>
+              ) : (
+                <View style={styles.successActions}>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={[styles.successAction, styles.successActionPrimary, !cartCount && styles.successActionDisabled]}
+                    onPress={goToBillingAfterScan}
+                    disabled={!cartCount}
+                  >
+                    <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.successActionPrimaryText}>Go to Billing</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={styles.successAction}
+                    onPress={scanNextProduct}
+                  >
+                    <Ionicons name="scan-outline" size={20} color="#0A46E4" />
+                    <Text style={styles.successActionText}>Scan New</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={styles.successAction}
+                    onPress={openManualAfterScan}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color="#0A46E4" />
+                    <Text style={styles.successActionText}>Add Manually</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
-            <Text style={styles.successTitle}>{scanSuccess.title}</Text>
-            <Text style={styles.successDetail}>{scanSuccess.detail}</Text>
-            <View style={styles.successProgress}>
-              <Animated.View
-                style={[
-                  styles.successProgressFill,
-                  {
-                    transform: [{
-                      scaleX: pulse.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.05, 1],
-                      }),
-                    }],
-                  },
-                ]}
-              />
-            </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        </Modal>
       ) : null}
     </View>
   );
@@ -447,11 +587,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "#020617",
   },
+  modalOverlayRoot: {
+    flex: 1,
+    backgroundColor: "transparent",
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 1,
-    elevation: 1,
-    pointerEvents: "box-none",
+    zIndex: 1000,
+    elevation: 1000,
   },
   header: {
     flexDirection: "row",
@@ -488,22 +631,69 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    pointerEvents: "none",
   },
   scanBox: {
     borderRadius: 26,
     position: "relative",
+    shadowColor: "#000000",
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 20,
+  },
+  scanFrameSurface: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.42)",
+    backgroundColor: "rgba(15, 23, 42, 0.18)",
+  },
+  scanFrameLabel: {
+    position: "absolute",
+    top: -39,
+    alignSelf: "center",
+    minHeight: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.28)",
+    backgroundColor: "rgba(2, 6, 23, 0.78)",
+  },
+  scanFrameLabelText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.25,
+  },
+  scanLine: {
+    position: "absolute",
+    left: 15,
+    right: 15,
+    top: 0,
+    height: 3,
+    borderRadius: 99,
+    backgroundColor: "#22D3EE",
+    shadowColor: "#22D3EE",
+    shadowOpacity: 1,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 22,
   },
   corner: {
     position: "absolute",
-    width: 44,
-    height: 44,
-    borderColor: "#38BDF8",
+    width: 52,
+    height: 52,
+    borderColor: "#FFFFFF",
+    zIndex: 4,
+    elevation: 24,
   },
-  topLeft: { top: 0, left: 0, borderTopWidth: 5, borderLeftWidth: 5, borderTopLeftRadius: 18 },
-  topRight: { top: 0, right: 0, borderTopWidth: 5, borderRightWidth: 5, borderTopRightRadius: 18 },
-  bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 5, borderLeftWidth: 5, borderBottomLeftRadius: 18 },
-  bottomRight: { bottom: 0, right: 0, borderBottomWidth: 5, borderRightWidth: 5, borderBottomRightRadius: 18 },
+  topLeft: { top: -2, left: -2, borderTopWidth: 6, borderLeftWidth: 6, borderTopLeftRadius: 20 },
+  topRight: { top: -2, right: -2, borderTopWidth: 6, borderRightWidth: 6, borderTopRightRadius: 20 },
+  bottomLeft: { bottom: -2, left: -2, borderBottomWidth: 6, borderLeftWidth: 6, borderBottomLeftRadius: 20 },
+  bottomRight: { bottom: -2, right: -2, borderBottomWidth: 6, borderRightWidth: 6, borderBottomRightRadius: 20 },
   hint: {
     position: "absolute",
     alignSelf: "center",
@@ -521,8 +711,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 0,
+    bottom: 10,
     gap: 10,
+    zIndex: 1001,
+    elevation: 1001,
   },
   saleActions: { flexDirection: "row", alignItems: "stretch", gap: 10 },
   manualButton: {
@@ -605,9 +797,7 @@ const styles = StyleSheet.create({
   },
   permissionManualText: { color: "#0A46E4", fontWeight: "900" },
   successBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 8,
-    elevation: 8,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: 26,
@@ -661,6 +851,13 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     fontSize: 24,
     fontWeight: "900",
+    marginTop: 7,
+  },
+  successEyebrow: {
+    color: "#15803D",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.4,
     marginTop: 15,
   },
   successDetail: {
@@ -683,5 +880,38 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     backgroundColor: "#22C55E",
     transformOrigin: "left",
+  },
+  successActions: {
+    width: "100%",
+    marginTop: 23,
+    gap: 9,
+  },
+  successAction: {
+    minHeight: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    backgroundColor: "#EFF6FF",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  successActionPrimary: {
+    borderColor: "#0A46E4",
+    backgroundColor: "#0A46E4",
+  },
+  successActionDisabled: {
+    opacity: 0.45,
+  },
+  successActionText: {
+    color: "#0A46E4",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  successActionPrimaryText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "900",
   },
 });
