@@ -59,6 +59,63 @@ export function getOrderAnalytics(orders = [], products = []) {
   };
 }
 
+export function toLocalDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+export function getDailySalesInsights(orders = [], dateKey = toLocalDateKey(new Date())) {
+  const selectedOrders = orders
+    .filter((order) => toLocalDateKey(order.createdAt || order.date) === dateKey)
+    .sort((left, right) => (
+      new Date(right.createdAt || right.date).getTime()
+      - new Date(left.createdAt || left.date).getTime()
+    ));
+  const products = new Map();
+  let productsSold = 0;
+
+  selectedOrders.forEach((order) => {
+    (order.cart || order.items || []).forEach((item) => {
+      const quantity = Number(item.quantity || 0);
+      const revenue = roundMoney(Number(item.price || 0) * quantity);
+      productsSold += quantity;
+      const key = String(item.id || item.productId || item.barcode || item.name);
+      const existing = products.get(key) || {
+        id: key,
+        name: item.name || "Product",
+        quantity: 0,
+        revenue: 0,
+      };
+      existing.quantity += quantity;
+      existing.revenue = roundMoney(existing.revenue + revenue);
+      products.set(key, existing);
+    });
+  });
+
+  const rankedProducts = [...products.values()].sort(
+    (left, right) => right.quantity - left.quantity || right.revenue - left.revenue,
+  );
+  const revenue = roundMoney(
+    selectedOrders.reduce((sum, order) => sum + Number(order.total || 0), 0),
+  );
+
+  return {
+    dateKey,
+    revenue,
+    totalOrders: selectedOrders.length,
+    productsSold,
+    averageBill: selectedOrders.length ? roundMoney(revenue / selectedOrders.length) : 0,
+    topProduct: rankedProducts[0] || null,
+    products: rankedProducts,
+    orders: selectedOrders,
+  };
+}
+
 export function addCartItem(cart = [], product) {
   const stock = Number(product.stock || 0);
   const current = cart.find((item) => item.id === product.id)?.quantity || 0;

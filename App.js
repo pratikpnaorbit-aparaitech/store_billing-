@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import SubscriptionScreen from "./src/screens/subscription/SubscriptionScreen";
+import AccountPausedScreen from "./src/screens/subscription/AccountPausedScreen";
 import { useProductStore } from "./src/store/productStore";
 import { useCartStore } from "./src/store/cartStore";
 import { useOrderStore } from "./src/store/orderStore";
@@ -63,6 +64,10 @@ export default function App() {
       appState.remove();
     };
   }, [authReady, cloudMode, refreshSubscription, user?.id]);
+
+  if (authReady && user?.subscription?.adminPaused) {
+    return <AccountPausedScreen />;
+  }
 
   if (authReady && user?.subscription && !user.subscription.accessAllowed) {
     return <SubscriptionScreen />;

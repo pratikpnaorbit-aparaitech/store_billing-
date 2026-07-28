@@ -8,11 +8,13 @@ import FloatingActionButton from "../../components/products/FloatingActionButton
 import FloatingCartBar from "../../components/cart/FloatingCartBar";
 import InventorySummary from "../../components/inventory/InventorySummary";
 import { useProductStore } from "../../store/productStore";
+import { useCartStore } from "../../store/cartStore";
 
 export default function ProductListScreen({ navigation }) {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const products = useProductStore((state) => state.products);
+  const cartHasItems = useCartStore((state) => state.cart.length > 0);
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(products.map((item) => item.category).filter(Boolean))).sort()],
     [products],
@@ -77,7 +79,10 @@ export default function ProductListScreen({ navigation }) {
       />
 
       <FloatingCartBar onPress={() => navigation.navigate("Billing")} />
-      <FloatingActionButton onPress={() => navigation.navigate("AddProduct")} />
+      <FloatingActionButton
+        bottom={cartHasItems ? 168 : 92}
+        onPress={() => navigation.navigate("AddProduct")}
+      />
     </View>
   );
 }

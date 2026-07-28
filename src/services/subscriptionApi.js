@@ -12,6 +12,10 @@ export const createSubscriptionCheckout = async (planId) => (
   await api.post("/subscriptions/checkout-session", { planId })
 ).data.data;
 
+export const startSubscriptionMigration = async (planId) => (
+  await api.post("/subscriptions/migration/start", { planId })
+).data.data;
+
 export const verifySubscriptionCheckout = async (payload) => (
   await api.post("/subscriptions/checkout/verify", payload)
 ).data.data;

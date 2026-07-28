@@ -1,6 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Easing,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -41,6 +44,12 @@ export default function ScannerScreen({ navigation, route }) {
   const [cameraKey, setCameraKey] = useState(0);
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [manualPickerVisible, setManualPickerVisible] = useState(false);
+  const [scanSuccess, setScanSuccess] = useState(null);
+  const [successOpacity] = useState(() => new Animated.Value(0));
+  const [successScale] = useState(() => new Animated.Value(0.7));
+  const [checkScale] = useState(() => new Animated.Value(0));
+  const [pulse] = useState(() => new Animated.Value(0));
+  const successTimer = useRef(null);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -59,16 +68,66 @@ export default function ScannerScreen({ navigation, route }) {
       setCameraReady(false);
       setTorchEnabled(false);
       setCameraError("");
+      setScanSuccess(null);
     });
     const unsubscribeBlur = navigation.addListener("blur", () => {
       setCameraReady(false);
       setTorchEnabled(false);
     });
     return () => {
+      clearTimeout(successTimer.current);
       unsubscribeFocus();
       unsubscribeBlur();
     };
   }, [navigation]);
+
+  const playSuccess = (details, onComplete) => {
+    clearTimeout(successTimer.current);
+    setScanSuccess(details);
+    successOpacity.setValue(0);
+    successScale.setValue(0.7);
+    checkScale.setValue(0);
+    pulse.setValue(0);
+    Animated.parallel([
+      Animated.timing(successOpacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(successScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 95,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.delay(150),
+        Animated.spring(checkScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 120,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.timing(pulse, {
+        toValue: 1,
+        duration: 850,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+    successTimer.current = setTimeout(() => {
+      Animated.timing(successOpacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start(() => {
+        setScanSuccess(null);
+        if (onComplete) onComplete();
+        else setScanned(false);
+      });
+    }, 1350);
+  };
 
   const retryCamera = () => {
     setScanned(false);
@@ -105,10 +164,15 @@ export default function ScannerScreen({ navigation, route }) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
 
     if (route?.params?.mode === "fillBarcode") {
-      navigation.replace("AddProduct", {
-        barcode: data,
-        product: route?.params?.product,
-        draft: route?.params?.draft,
+      playSuccess({
+        title: "Barcode captured",
+        detail: String(data),
+      }, () => {
+        navigation.replace("AddProduct", {
+          barcode: data,
+          product: route?.params?.product,
+          draft: route?.params?.draft,
+        });
       });
       return;
     }
@@ -123,10 +187,10 @@ export default function ScannerScreen({ navigation, route }) {
         ]);
         return;
       }
-      Alert.alert("Product Added", `${product.name} added to the current bill`, [
-        { text: "Scan Again", onPress: () => setScanned(false) },
-        { text: "Go to Billing", onPress: goToBilling },
-      ]);
+      playSuccess({
+        title: "Scan successful",
+        detail: `${product.name} added to bill`,
+      });
     } else {
       Alert.alert("Product Not Found", `Barcode: ${data}`, [
         { text: "Scan Again", onPress: () => setScanned(false) },
@@ -303,6 +367,61 @@ export default function ScannerScreen({ navigation, route }) {
           goToBilling();
         }}
       />
+      {scanSuccess ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.successBackdrop,
+            {
+              opacity: successOpacity,
+              transform: [{ scale: successScale }],
+            },
+          ]}
+        >
+          <View style={styles.successCard}>
+            <View style={styles.successLogoWrap}>
+              <Image source={require("../../assets/images/logo.png")} style={styles.successLogo} />
+              <Animated.View
+                style={[
+                  styles.pulseRing,
+                  {
+                    opacity: pulse.interpolate({
+                      inputRange: [0, 0.65, 1],
+                      outputRange: [0.7, 0.2, 0],
+                    }),
+                    transform: [{
+                      scale: pulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.7, 1.65],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+              <Animated.View style={[styles.checkBadge, { transform: [{ scale: checkScale }] }]}>
+                <Ionicons name="checkmark" size={30} color="#FFFFFF" />
+              </Animated.View>
+            </View>
+            <Text style={styles.successTitle}>{scanSuccess.title}</Text>
+            <Text style={styles.successDetail}>{scanSuccess.detail}</Text>
+            <View style={styles.successProgress}>
+              <Animated.View
+                style={[
+                  styles.successProgressFill,
+                  {
+                    transform: [{
+                      scaleX: pulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.05, 1],
+                      }),
+                    }],
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        </Animated.View>
+      ) : null}
     </View>
   );
 }
@@ -485,4 +604,84 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   permissionManualText: { color: "#0A46E4", fontWeight: "900" },
+  successBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 8,
+    elevation: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 26,
+    backgroundColor: "rgba(2, 6, 23, 0.72)",
+  },
+  successCard: {
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+    borderRadius: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.75)",
+  },
+  successLogoWrap: {
+    width: 112,
+    height: 112,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successLogo: {
+    width: 82,
+    height: 82,
+    borderRadius: 25,
+    resizeMode: "contain",
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 4,
+    borderColor: "#22C55E",
+  },
+  checkBadge: {
+    position: "absolute",
+    right: 1,
+    bottom: 1,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#16A34A",
+    borderWidth: 5,
+    borderColor: "#FFFFFF",
+  },
+  successTitle: {
+    color: "#0F172A",
+    fontSize: 24,
+    fontWeight: "900",
+    marginTop: 15,
+  },
+  successDetail: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 7,
+  },
+  successProgress: {
+    width: "78%",
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: "#DCFCE7",
+    overflow: "hidden",
+    marginTop: 22,
+  },
+  successProgressFill: {
+    flex: 1,
+    borderRadius: 99,
+    backgroundColor: "#22C55E",
+    transformOrigin: "left",
+  },
 });

@@ -63,6 +63,47 @@ function userPlanView(subscription = {}) {
   };
 }
 
+function priceChangeForSubscription(subscription = {}, activePlans = []) {
+  const durationMonths = Number(subscription.planDurationMonths || 1);
+  const currentAmountPaise = Number(subscription.planAmountPaise || 0);
+  const currentVersion = Number(subscription.planVersion || 0);
+  const currentCatalogPlanId = subscription.catalogPlanId
+    ? String(subscription.catalogPlanId)
+    : "";
+  const latest = activePlans.find((plan) => Number(plan.durationMonths) === durationMonths);
+  const renewableStatus = ["authenticated", "active", "pending", "halted", "paused"]
+    .includes(String(subscription.status || "").toLowerCase());
+  const hasExistingAutopay = Boolean(
+    renewableStatus && subscription.razorpaySubscriptionId,
+  );
+  const latestView = latest ? planView(latest) : null;
+  const changed = Boolean(
+    hasExistingAutopay
+    && latest
+    && (
+      String(latest._id || latest.id) !== currentCatalogPlanId
+      || Number(latest.amountPaise) !== currentAmountPaise
+      || Number(latest.version || 1) !== currentVersion
+    )
+  );
+
+  return {
+    required: changed || Boolean(subscription.migrationPending),
+    migrationPending: Boolean(subscription.migrationPending),
+    currentPlan: userPlanView(subscription),
+    latestPlan: latestView,
+    targetPlanId: subscription.migrationTargetCatalogPlanId
+      ? String(subscription.migrationTargetCatalogPlanId)
+      : latestView?.id || "",
+    migrationStartsAt: asDate(subscription.migrationStartsAt)?.toISOString() || null,
+    message: changed
+      ? `A new price is available for your ${durationMonths}-month plan. Stop the old autopay and authorise the latest plan.`
+      : subscription.migrationPending
+        ? "Your old autopay is scheduled to stop. Complete the latest Razorpay plan authorisation."
+        : "",
+  };
+}
+
 function subscriptionView(user, now = new Date()) {
   const subscription = user.subscription || {};
   const { startedAt, endsAt } = trialDates(user, now);
@@ -70,9 +111,12 @@ function subscriptionView(user, now = new Date()) {
   const currentPeriodEnd = asDate(subscription.currentPeriodEnd);
   const trialActive = now < endsAt && !ACTIVE_STATUSES.has(rawStatus);
   const paidThrough = currentPeriodEnd && currentPeriodEnd > now;
+  const migrationCarryAccess = Boolean(subscription.migrationPending && paidThrough);
   const paidActive = ACTIVE_STATUSES.has(rawStatus)
-    || (["cancelled", "completed"].includes(rawStatus) && paidThrough);
-  const accessAllowed = Boolean(trialActive || paidActive);
+    || (["cancelled", "completed"].includes(rawStatus) && paidThrough)
+    || migrationCarryAccess;
+  const adminPaused = Boolean(user.accountAccess?.paused);
+  const accessAllowed = Boolean(!adminPaused && (trialActive || paidActive));
   let status = rawStatus;
   if (paidActive) status = "active";
   else if (trialActive) status = "trial_active";
@@ -97,7 +141,19 @@ function subscriptionView(user, now = new Date()) {
     lastPaymentId: subscription.lastPaymentId || "",
     lastPaymentAt: asDate(subscription.lastPaymentAt)?.toISOString() || null,
     lastEvent: subscription.lastEvent || "",
+    migrationPending: Boolean(subscription.migrationPending),
+    adminPaused,
+    accountPauseReason: user.accountAccess?.pauseReason || "",
+    accountPausedAt: asDate(user.accountAccess?.pausedAt)?.toISOString() || null,
     serverNow: now.toISOString(),
+  };
+}
+
+async function subscriptionViewWithPriceChange(user, now = new Date()) {
+  const plans = await listActivePlans();
+  return {
+    ...subscriptionView(user, now),
+    priceChange: priceChangeForSubscription(user.subscription || {}, plans),
   };
 }
 
@@ -255,14 +311,14 @@ async function publishPlan({ durationMonths, amountPaise, adminEmail }) {
   }
 }
 
-async function createProviderSubscription(user, plan) {
+async function createProviderSubscription(user, plan, options = {}) {
   const planId = await ensureProviderPlan(plan);
   const maximumCycles = Math.max(1, Math.floor(360 / Number(plan.durationMonths)));
   const totalCount = Math.min(
     maximumCycles,
     Math.max(1, Number(process.env.RAZORPAY_TOTAL_COUNT || 120)),
   );
-  const providerSubscription = await razorpayClient().subscriptions.create({
+  const payload = {
     plan_id: planId,
     total_count: totalCount,
     quantity: 1,
@@ -276,7 +332,12 @@ async function createProviderSubscription(user, plan) {
       durationMonths: String(plan.durationMonths),
       catalogVersion: String(plan.version),
     },
-  });
+  };
+  const requestedStart = asDate(options.startAt || user.subscription?.migrationStartsAt);
+  if (requestedStart && requestedStart.getTime() > Date.now() + (5 * 60 * 1000)) {
+    payload.start_at = Math.floor(requestedStart.getTime() / 1000);
+  }
+  const providerSubscription = await razorpayClient().subscriptions.create(payload);
   user.subscription = {
     ...(user.subscription?.toObject?.() || user.subscription || {}),
     status: providerSubscription.status || "created",
@@ -322,6 +383,61 @@ async function providerSubscriptionForCheckout(user, requestedPlanId = "") {
   return { checkout, plan };
 }
 
+async function startSubscriptionMigration(user, requestedPlanId = "") {
+  const plans = await listActivePlans();
+  const targetPlan = await activePlanForCheckout(requestedPlanId);
+  const notice = priceChangeForSubscription(user.subscription || {}, plans);
+  if (user.subscription?.migrationPending) {
+    return { user, targetPlan, notice };
+  }
+  if (!notice.required) {
+    const error = new Error("This subscription already uses the current plan price.");
+    error.code = "MIGRATION_NOT_REQUIRED";
+    error.status = 409;
+    throw error;
+  }
+
+  const oldSubscriptionId = String(user.subscription?.razorpaySubscriptionId || "");
+  if (!oldSubscriptionId) {
+    const error = new Error("The existing Razorpay autopay could not be found.");
+    error.code = "AUTOPAY_NOT_FOUND";
+    error.status = 409;
+    throw error;
+  }
+
+  const periodEnd = asDate(user.subscription?.currentPeriodEnd);
+  const cancelAtCycleEnd = Boolean(periodEnd && periodEnd > new Date());
+  const cancelled = await razorpayClient().subscriptions.cancel(
+    oldSubscriptionId,
+    cancelAtCycleEnd,
+  );
+  user.subscription = {
+    ...(user.subscription?.toObject?.() || user.subscription || {}),
+    status: cancelAtCycleEnd ? (cancelled.status || user.subscription.status) : "cancelled",
+    previousRazorpaySubscriptionId: oldSubscriptionId,
+    razorpaySubscriptionId: "",
+    migrationPending: true,
+    migrationTargetCatalogPlanId: targetPlan._id,
+    migrationStartedAt: new Date(),
+    migrationStartsAt: cancelAtCycleEnd ? periodEnd : null,
+    migrationCompletedAt: null,
+    nextChargeAt: null,
+    lastEvent: "subscription.migration_started",
+    lastSyncedAt: new Date(),
+  };
+  await user.save();
+  await recordEvent({
+    type: "subscription.migration_started",
+    userId: user._id,
+    subscription: cancelled,
+  });
+  return {
+    user,
+    targetPlan,
+    notice: priceChangeForSubscription(user.subscription || {}, plans),
+  };
+}
+
 function verifySubscriptionSignature({ paymentId, subscriptionId, signature }) {
   const secret = String(process.env.RAZORPAY_KEY_SECRET || "");
   if (!secret || !paymentId || !subscriptionId || !signature) return false;
@@ -349,19 +465,37 @@ async function applyProviderSubscription(user, entity, options = {}) {
   if (!user || !entity) return user;
   const paymentId = options.payment?.id || options.paymentId || "";
   const paymentAt = unixDate(options.payment?.created_at) || options.paymentAt || null;
+  const entityStatus = String(entity.status || "").toLowerCase();
+  const preserveMigrationPeriod = Boolean(
+    user.subscription?.migrationPending && !ACTIVE_STATUSES.has(entityStatus),
+  );
+  const completesMigration = Boolean(
+    user.subscription?.migrationPending
+    && entity.id
+    && entity.id !== user.subscription?.previousRazorpaySubscriptionId
+    && (options.completeMigration || ACTIVE_STATUSES.has(String(entity.status || "").toLowerCase())),
+  );
   user.subscription = {
     ...(user.subscription?.toObject?.() || user.subscription || {}),
     status: entity.status || user.subscription?.status || "created",
     planId: entity.plan_id || user.subscription?.planId || "",
     razorpaySubscriptionId: entity.id || user.subscription?.razorpaySubscriptionId || "",
-    currentPeriodStart: unixDate(entity.current_start),
-    currentPeriodEnd: unixDate(entity.current_end),
+    currentPeriodStart: unixDate(entity.current_start)
+      || (preserveMigrationPeriod ? user.subscription?.currentPeriodStart : null),
+    currentPeriodEnd: unixDate(entity.current_end)
+      || (preserveMigrationPeriod ? user.subscription?.currentPeriodEnd : null),
     nextChargeAt: unixDate(entity.charge_at),
     endedAt: unixDate(entity.ended_at),
     lastPaymentId: paymentId || user.subscription?.lastPaymentId || "",
     lastPaymentAt: paymentAt || (paymentId ? new Date() : user.subscription?.lastPaymentAt),
     lastEvent: options.eventType || user.subscription?.lastEvent || "",
     lastSyncedAt: new Date(),
+    ...(completesMigration ? {
+      migrationPending: false,
+      migrationTargetCatalogPlanId: null,
+      migrationCompletedAt: new Date(),
+      migrationStartsAt: null,
+    } : {}),
   };
   await user.save();
   return user;
@@ -379,6 +513,10 @@ async function findUserForProviderSubscription(entity) {
     ? await User.findOne({ "subscription.razorpaySubscriptionId": entity.id })
     : null;
   if (byProviderId) return byProviderId;
+  const byPreviousProviderId = entity?.id
+    ? await User.findOne({ "subscription.previousRazorpaySubscriptionId": entity.id })
+    : null;
+  if (byPreviousProviderId) return byPreviousProviderId;
   const noteUserId = entity?.notes?.userId;
   return noteUserId ? User.findById(noteUserId) : null;
 }
@@ -417,12 +555,15 @@ module.exports = {
   findUserForProviderSubscription,
   listActivePlans,
   planView,
+  priceChangeForSubscription,
   providerSubscriptionForCheckout,
   publishPlan,
   razorpayClient,
   recordEvent,
   subscriptionAmount,
   subscriptionView,
+  subscriptionViewWithPriceChange,
+  startSubscriptionMigration,
   syncProviderSubscription,
   trialDays,
   verifySubscriptionSignature,

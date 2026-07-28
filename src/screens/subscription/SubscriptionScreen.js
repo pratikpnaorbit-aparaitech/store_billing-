@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as WebBrowser from "expo-web-browser";
-import { createSubscriptionCheckout, fetchSubscriptionPlans, verifySubscriptionCheckout } from "../../services/subscriptionApi";
+import {
+  createSubscriptionCheckout,
+  fetchSubscriptionPlans,
+  startSubscriptionMigration,
+  verifySubscriptionCheckout,
+} from "../../services/subscriptionApi";
 import { useAuthStore } from "../../store/authStore";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -19,7 +24,7 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
-export default function SubscriptionScreen() {
+export default function SubscriptionScreen({ navigation, route }) {
   const user = useAuthStore((state) => state.user);
   const refreshSubscription = useAuthStore((state) => state.refreshSubscription);
   const logout = useAuthStore((state) => state.logout);
@@ -30,6 +35,9 @@ export default function SubscriptionScreen() {
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [plansLoading, setPlansLoading] = useState(true);
   const subscription = user?.subscription || {};
+  const migrationMode = Boolean(route?.params?.migration);
+  const manageMode = Boolean(route?.params?.manage);
+  const priceChange = subscription.priceChange;
   const paymentIssue = ["pending", "halted"].includes(subscription.providerStatus);
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId) || plans[0];
 
@@ -40,7 +48,10 @@ export default function SubscriptionScreen() {
         if (!active) return;
         const available = response.plans || [];
         setPlans(available);
-        setSelectedPlanId((current) => current || available[0]?.id || "");
+        const preferred = available.find((plan) => plan.id === priceChange?.targetPlanId)
+          || available.find((plan) => plan.durationMonths === subscription.plan?.durationMonths)
+          || available[0];
+        setSelectedPlanId((current) => current || preferred?.id || "");
       })
       .catch((error) => {
         if (active) setMessage(error.message || "Could not load subscription plans.");
@@ -49,7 +60,7 @@ export default function SubscriptionScreen() {
         if (active) setPlansLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [priceChange?.targetPlanId, subscription.plan?.durationMonths]);
 
   const refresh = async () => {
     setRefreshing(true);
@@ -66,11 +77,16 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const subscribe = async () => {
+  const performCheckout = async () => {
     setBusy(true);
     setMessage("");
     try {
       if (!selectedPlan?.id) throw new Error("Choose a subscription plan first.");
+      if (migrationMode && priceChange?.required && !subscription.migrationPending) {
+        const migration = await startSubscriptionMigration(selectedPlan.id);
+        setMessage(migration.message || "Old autopay is scheduled to stop. Continue with Razorpay.");
+        await refreshSubscription();
+      }
       const checkout = await createSubscriptionCheckout(selectedPlan.id);
       if (Platform.OS === "web") {
         await WebBrowser.openBrowserAsync(checkout.checkoutUrl);
@@ -103,6 +119,7 @@ export default function SubscriptionScreen() {
         });
       }
       await refreshSubscription();
+      if (navigation?.canGoBack?.()) navigation.goBack();
     } catch (error) {
       setMessage(error.description || error.message || "Could not open Razorpay checkout.");
     } finally {
@@ -110,11 +127,31 @@ export default function SubscriptionScreen() {
     }
   };
 
+  const subscribe = () => {
+    if (migrationMode && priceChange?.required && !subscription.migrationPending) {
+      Alert.alert(
+        "Switch autopay plan?",
+        "Your current autopay will be scheduled to stop at the end of its paid cycle. You will then authorise the selected latest plan in Razorpay.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Continue", onPress: performCheckout },
+        ],
+      );
+      return;
+    }
+    performCheckout();
+  };
+
   return (
     <LinearGradient colors={["#EAF1FF", "#F8FAFC", "#FFFFFF"]} style={styles.screen}>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.brand}>
+            {navigation?.canGoBack?.() ? (
+              <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                <Ionicons name="arrow-back" size={20} color="#0F172A" />
+              </TouchableOpacity>
+            ) : null}
             <View style={styles.brandIcon}><Ionicons name="receipt-outline" size={25} color="#FFF" /></View>
             <Text style={styles.brandText}>Smart Billing</Text>
           </View>
@@ -122,14 +159,26 @@ export default function SubscriptionScreen() {
             <View style={styles.heroIcon}>
               <Ionicons name={paymentIssue ? "alert-circle-outline" : "lock-closed-outline"} size={34} color={paymentIssue ? "#B45309" : "#0A46E4"} />
             </View>
-            <Text style={styles.title}>{paymentIssue ? "Payment needs attention" : "Your free trial has ended"}</Text>
+            <Text style={styles.title}>
+              {migrationMode
+                ? "Update your autopay"
+                : manageMode && subscription.accessAllowed
+                  ? "Your subscription"
+                  : paymentIssue
+                    ? "Payment needs attention"
+                    : "Your free trial has ended"}
+            </Text>
             <Text style={styles.subtitle}>
-              {paymentIssue
+              {migrationMode
+                ? `Your current plan is ₹${Number(priceChange?.currentPlan?.amount || subscription.plan?.amount || 0).toLocaleString("en-IN")}. Choose a latest plan below and securely replace the old autopay.`
+                : manageMode && subscription.accessAllowed
+                  ? `Your ${subscription.plan?.durationMonths || 1}-month plan is active. No payment action is required.`
+                  : paymentIssue
                 ? "Razorpay could not complete the latest charge. Refresh after payment succeeds, or continue to Razorpay."
                 : `Your 7-day trial ended on ${formatDate(subscription.trialEndsAt)}. Choose a plan to continue using the app.`}
             </Text>
 
-            <Text style={styles.planHeading}>Choose your billing plan</Text>
+            <Text style={styles.planHeading}>{manageMode && !migrationMode ? "Current plan prices" : "Choose your billing plan"}</Text>
             {plansLoading ? (
               <View style={styles.plansLoading}>
                 <ActivityIndicator color="#0A46E4" />
@@ -176,24 +225,33 @@ export default function SubscriptionScreen() {
             ))}
 
             {message ? <View style={styles.messageBox}><Text style={styles.message}>{message}</Text></View> : null}
-            <TouchableOpacity
-              style={[styles.primary, (!selectedPlan || plansLoading) && styles.disabledButton]}
-              onPress={subscribe}
-              disabled={busy || refreshing || plansLoading || !selectedPlan}
-            >
-              {busy
-                ? <ActivityIndicator color="#FFF" />
-                : <><Ionicons name="card-outline" size={20} color="#FFF" /><Text style={styles.primaryText}>Subscribe securely with Razorpay</Text></>}
-            </TouchableOpacity>
+            {!manageMode || migrationMode ? (
+              <TouchableOpacity
+                style={[styles.primary, (!selectedPlan || plansLoading) && styles.disabledButton]}
+                onPress={subscribe}
+                disabled={busy || refreshing || plansLoading || !selectedPlan}
+              >
+                {busy
+                  ? <ActivityIndicator color="#FFF" />
+                  : <><Ionicons name="card-outline" size={20} color="#FFF" /><Text style={styles.primaryText}>{migrationMode ? "Stop old autopay & authorise new plan" : "Subscribe securely with Razorpay"}</Text></>}
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.currentPlanNote}>
+                <Ionicons name="checkmark-circle" size={21} color="#15803D" />
+                <Text style={styles.currentPlanText}>Your authorised autopay price stays unchanged until an admin publishes a new plan price.</Text>
+              </View>
+            )}
             <TouchableOpacity style={styles.secondary} onPress={refresh} disabled={busy || refreshing}>
               {refreshing
                 ? <ActivityIndicator color="#0A46E4" />
                 : <><Ionicons name="refresh-outline" size={20} color="#0A46E4" /><Text style={styles.secondaryText}>Refresh payment status</Text></>}
             </TouchableOpacity>
           </View>
-          <TouchableOpacity onPress={logout} disabled={busy || refreshing}>
-            <Text style={styles.logout}>Log out of {user?.email}</Text>
-          </TouchableOpacity>
+          {!navigation?.canGoBack?.() ? (
+            <TouchableOpacity onPress={logout} disabled={busy || refreshing}>
+              <Text style={styles.logout}>Log out of {user?.email}</Text>
+            </TouchableOpacity>
+          ) : null}
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -205,6 +263,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, justifyContent: "center", padding: 22, paddingVertical: 42 },
   brand: { flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 22 },
+  backButton: { position: "absolute", left: 0, width: 44, height: 44, borderRadius: 15, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", alignItems: "center", justifyContent: "center" },
   brandIcon: { width: 44, height: 44, borderRadius: 15, backgroundColor: "#0A46E4", alignItems: "center", justifyContent: "center" },
   brandText: { color: "#0F172A", fontSize: 21, fontWeight: "900", marginLeft: 10 },
   card: { width: "100%", maxWidth: 480, alignSelf: "center", backgroundColor: "#FFF", borderRadius: 28, borderWidth: 1, borderColor: "#DBE5F3", padding: 24, elevation: 7 },
@@ -234,5 +293,7 @@ const styles = StyleSheet.create({
   primaryText: { color: "#FFF", fontWeight: "900", textAlign: "center" },
   secondary: { minHeight: 54, borderRadius: 18, backgroundColor: "#FFF", borderWidth: 1, borderColor: "#BFDBFE", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9, marginTop: 11 },
   secondaryText: { color: "#0A46E4", fontWeight: "900" },
+  currentPlanNote: { minHeight: 60, borderRadius: 17, backgroundColor: "#F0FDF4", borderWidth: 1, borderColor: "#BBF7D0", flexDirection: "row", alignItems: "center", padding: 14, gap: 9 },
+  currentPlanText: { color: "#166534", fontSize: 12, fontWeight: "700", lineHeight: 17, flex: 1 },
   logout: { textAlign: "center", color: "#64748B", fontWeight: "700", marginTop: 22 },
 });

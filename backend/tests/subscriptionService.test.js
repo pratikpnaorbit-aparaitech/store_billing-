@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const test = require("node:test");
 const {
   planView,
+  priceChangeForSubscription,
   subscriptionView,
   verifySubscriptionSignature,
 } = require("../src/services/subscriptionService");
@@ -49,6 +50,21 @@ test("grants access only for healthy or already-paid subscription periods", () =
     subscription: { ...baseUser.subscription, status: "halted" },
   }, new Date("2026-08-01T00:00:00.000Z"));
   assert.equal(halted.accessAllowed, false);
+});
+
+test("admin pause overrides an otherwise active subscription", () => {
+  const paused = subscriptionView({
+    ...baseUser,
+    accountAccess: {
+      paused: true,
+      pauseReason: "Subscription price update is pending",
+      pausedAt: new Date("2026-08-01T00:00:00.000Z"),
+    },
+    subscription: { ...baseUser.subscription, status: "active" },
+  }, new Date("2026-08-01T00:00:00.000Z"));
+  assert.equal(paused.adminPaused, true);
+  assert.equal(paused.accessAllowed, false);
+  assert.equal(paused.accountPauseReason, "Subscription price update is pending");
 });
 
 test("verifies Razorpay subscription signatures without trusting the client", () => {
@@ -99,6 +115,30 @@ test("keeps a subscriber's authorised plan snapshot when admin prices change", (
     version: 4,
     interval: "3 months",
   });
+});
+
+test("detects a newer immutable price for an existing autopay", () => {
+  const notice = priceChangeForSubscription({
+    status: "active",
+    catalogPlanId: "old-plan-id",
+    razorpaySubscriptionId: "sub_existing",
+    planName: "1 Month Plan",
+    planDurationMonths: 1,
+    planAmountPaise: 30000,
+    planVersion: 1,
+  }, [{
+    _id: "new-plan-id",
+    key: "1-month-v2",
+    name: "1 Month Plan",
+    durationMonths: 1,
+    amountPaise: 25000,
+    currency: "INR",
+    version: 2,
+  }]);
+  assert.equal(notice.required, true);
+  assert.equal(notice.currentPlan.amount, 300);
+  assert.equal(notice.latestPlan.amount, 250);
+  assert.equal(notice.targetPlanId, "new-plan-id");
 });
 
 test("serializes a dynamic plan for the app without exposing provider secrets", () => {

@@ -33,7 +33,7 @@ export default function DashboardScreen({ navigation }) {
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
     <AppHeader name={user?.name || "User"} onNotifications={() => navigation.navigate("Products")} />
-    <SubscriptionBanner />
+    <SubscriptionBanner onPress={() => navigation.getParent()?.navigate("ManageSubscription", { migration: true })} />
     <RevenueCard revenue={formatCurrency(dashboard.todaySales)} growth="Live totals" orders={String(dashboard.todayOrders)} customers={String(Math.max(0, customers.length - 1))} />
     <SectionHeader title="Quick Actions" /><View style={styles.quick}><QuickActionCard icon="scan-outline" title="Scan Product" onPress={() => navigation.navigate("Scan")} /><QuickActionCard icon="cube-outline" title="Products" onPress={() => navigation.navigate("Products")} /><QuickActionCard icon="receipt-outline" title="Orders" onPress={() => navigation.navigate("Orders")} /><QuickActionCard icon="bar-chart-outline" title="Reports" onPress={() => navigation.getParent()?.navigate("Reports")} /></View>
     <SectionHeader title="Business Overview" /><View style={styles.stats}><StatCard icon="bag-check-outline" title="Orders" value={String(dashboard.stats.totalOrders)} color="#0A46E4" /><StatCard icon="cash-outline" title="Revenue" value={formatCurrency(dashboard.stats.totalSales)} color="#22C55E" /></View><View style={styles.stats}><StatCard icon="cube-outline" title="Items Sold" value={String(dashboard.stats.productsSold)} color="#8B5CF6" /><StatCard icon="warning-outline" title="Low Stock" value={String(dashboard.stats.lowStock)} color="#EF4444" /></View>

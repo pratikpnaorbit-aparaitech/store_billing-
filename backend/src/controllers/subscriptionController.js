@@ -12,6 +12,8 @@ const {
   recordEvent,
   subscriptionAmount,
   subscriptionView,
+  subscriptionViewWithPriceChange,
+  startSubscriptionMigration,
   syncProviderSubscription,
   verifySubscriptionSignature,
   verifyWebhookSignature,
@@ -139,7 +141,7 @@ exports.getStatus = async (req, res) => {
       // The locally verified status remains usable when Razorpay is temporarily unavailable.
     }
   }
-  return res.json({ success: true, data: subscriptionView(req.user) });
+  return res.json({ success: true, data: await subscriptionViewWithPriceChange(req.user) });
 };
 
 exports.getPlan = (req, res) => res.json({
@@ -176,7 +178,7 @@ exports.createCheckoutSession = async (req, res) => {
   try {
     await ensureTrial(req.user);
     const current = subscriptionView(req.user);
-    if (current.trialActive) {
+    if (current.trialActive && !req.user.subscription?.migrationPending) {
       return res.status(409).json({
         success: false,
         code: "TRIAL_ACTIVE",
@@ -184,7 +186,7 @@ exports.createCheckoutSession = async (req, res) => {
         data: current,
       });
     }
-    if (current.accessAllowed) {
+    if (current.accessAllowed && !req.user.subscription?.migrationPending) {
       return res.status(409).json({
         success: false,
         code: "SUBSCRIPTION_ACTIVE",
@@ -233,10 +235,32 @@ exports.createCheckoutSession = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(502).json({
+    return res.status(error.status || 502).json({
       success: false,
-      code: "CHECKOUT_UNAVAILABLE",
+      code: error.code || "CHECKOUT_UNAVAILABLE",
       message: error.error?.description || error.message || "Could not start Razorpay checkout",
+    });
+  }
+};
+
+exports.startMigration = async (req, res) => {
+  try {
+    const result = await startSubscriptionMigration(req.user, req.body.planId);
+    return res.json({
+      success: true,
+      data: {
+        subscription: await subscriptionViewWithPriceChange(result.user),
+        targetPlan: planView(result.targetPlan),
+        message: result.user.subscription?.migrationStartsAt
+          ? "Old autopay will stop at the end of the current paid cycle. Authorise the new plan now so it can continue from that date."
+          : "Old autopay has been stopped. Authorise the new plan to continue.",
+      },
+    });
+  } catch (error) {
+    return res.status(error.status || 502).json({
+      success: false,
+      code: error.code || "MIGRATION_UNAVAILABLE",
+      message: error.error?.description || error.message || "Could not stop the old autopay",
     });
   }
 };
@@ -311,6 +335,7 @@ exports.verifyCheckout = async (req, res) => {
     eventType: "subscription.authenticated",
     paymentId,
     paymentAt: new Date(),
+    completeMigration: true,
   });
   session.status = "verified";
   session.paymentId = paymentId;
@@ -345,7 +370,11 @@ exports.webhook = async (req, res) => {
 
   const user = await findUserForProviderSubscription(entity);
   if (user) {
-    await applyProviderSubscription(user, entity, { eventType, payment });
+    const previousId = String(user.subscription?.previousRazorpaySubscriptionId || "");
+    const currentId = String(user.subscription?.razorpaySubscriptionId || "");
+    if (!(entity.id === previousId && (user.subscription?.migrationPending || (currentId && currentId !== entity.id)))) {
+      await applyProviderSubscription(user, entity, { eventType, payment });
+    }
     await recordEvent({
       type: eventType,
       userId: user._id,

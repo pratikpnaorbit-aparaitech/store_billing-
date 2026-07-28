@@ -11,6 +11,7 @@ import { generateAndShareReceiptPDF } from "../../utils/pdfGenerator";
 import { buildThermalReceipt } from "../../utils/printer/thermalReceipt";
 import { createInvoiceNo, formatCurrency } from "../../utils/billing";
 import { hasRemoteApi } from "../../services/api";
+import { useAuthStore } from "../../store/authStore";
 
 export default function ReceiptScreen({ navigation, route }) {
   const liveCart = useCartStore((state) => state.cart);
@@ -19,6 +20,7 @@ export default function ReceiptScreen({ navigation, route }) {
   const addOrder = useOrderStore((state) => state.addOrder);
   const orders = useOrderStore((state) => state.orders);
   const updateCustomerStats = useCustomerStore((state) => state.updateCustomerStats);
+  const user = useAuthStore((state) => state.user);
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
   const [liveInvoiceNo] = useState(() => createInvoiceNo());
@@ -38,6 +40,7 @@ export default function ReceiptScreen({ navigation, route }) {
   const data = isHistory
     ? historyOrder && {
       ...historyOrder,
+      storeName: historyOrder.storeName || user?.storeName || user?.name || "My Store",
       cart: historyCart,
       invoiceNo: historyOrder.invoiceNo,
       date: historyOrder.date || dayjs(historyOrder.createdAt).format("DD MMM YYYY, hh:mm A"),
@@ -51,6 +54,7 @@ export default function ReceiptScreen({ navigation, route }) {
     }
     : {
       cart: liveCart,
+      storeName: user?.storeName || user?.name || "My Store",
       invoiceNo: liveInvoiceNo,
       date: dayjs(liveCreatedAt).format("DD MMM YYYY, hh:mm A"),
       payment: "Cash",
@@ -127,7 +131,7 @@ export default function ReceiptScreen({ navigation, route }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.receipt}>
-          <Text style={styles.store}>SMART BILLING</Text>
+          <Text style={styles.store}>{data.storeName}</Text>
           <Text style={styles.sub}>Scan • Bill • Print</Text>
           <View style={styles.line} />
 

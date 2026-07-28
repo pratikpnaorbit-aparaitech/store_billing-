@@ -21,6 +21,20 @@ const SubscriptionSchema = new mongoose.Schema({
   lastPaymentAt: { type: Date, default: null },
   lastEvent: { type: String, default: "" },
   lastSyncedAt: { type: Date, default: null },
+  migrationPending: { type: Boolean, default: false },
+  migrationTargetCatalogPlanId: { type: mongoose.Schema.Types.ObjectId, ref: "SubscriptionPlan", default: null },
+  migrationStartedAt: { type: Date, default: null },
+  migrationStartsAt: { type: Date, default: null },
+  migrationCompletedAt: { type: Date, default: null },
+  previousRazorpaySubscriptionId: { type: String, default: "", index: true },
+}, { _id: false });
+
+const AccountAccessSchema = new mongoose.Schema({
+  paused: { type: Boolean, default: false },
+  pausedAt: { type: Date, default: null },
+  pausedBy: { type: String, default: "" },
+  pauseReason: { type: String, default: "" },
+  providerPaused: { type: Boolean, default: false },
 }, { _id: false });
 
 const UserSchema = new mongoose.Schema({
@@ -31,6 +45,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   role: { type: String, default: "user" },
   subscription: { type: SubscriptionSchema, default: () => ({}) },
+  accountAccess: { type: AccountAccessSchema, default: () => ({}) },
   passwordResetHash: { type: String, default: null, select: false },
   passwordResetExpires: { type: Date, default: null, select: false },
 }, { timestamps: true });

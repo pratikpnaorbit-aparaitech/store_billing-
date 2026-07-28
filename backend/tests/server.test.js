@@ -75,9 +75,13 @@ test("protects subscription and admin data endpoints", () => withServer(async (o
 
   const subscription = await fetch(`${origin}/api/subscriptions/status`);
   assert.equal(subscription.status, 401);
+  const migration = await fetch(`${origin}/api/subscriptions/migration/start`, { method: "POST" });
+  assert.equal(migration.status, 401);
 
   const dashboard = await fetch(`${origin}/api/admin/dashboard`);
   assert.equal(dashboard.status, 401);
+  const accountAccess = await fetch(`${origin}/api/admin/users/test/access`, { method: "PATCH" });
+  assert.equal(accountAccess.status, 401);
 
   const invalidAdmin = await fetch(`${origin}/api/admin/login`, {
     method: "POST",

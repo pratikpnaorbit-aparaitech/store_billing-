@@ -3,9 +3,9 @@ import { TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
-export default function FloatingActionButton({ onPress }) {
+export default function FloatingActionButton({ onPress, bottom = 92 }) {
   return (
-    <TouchableOpacity activeOpacity={0.86} onPress={onPress} style={styles.shadow}>
+    <TouchableOpacity activeOpacity={0.86} onPress={onPress} style={[styles.shadow, { bottom }]}>
       <LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.button}>
         <Ionicons name="add" size={30} color="#FFFFFF" />
       </LinearGradient>
@@ -17,7 +17,6 @@ const styles = StyleSheet.create({
   shadow: {
     position: "absolute",
     right: 22,
-    bottom: 92,
     shadowColor: "#0A46E4",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.28,

@@ -5,9 +5,12 @@ const SubscriptionEvent = require("../models/SubscriptionEvent");
 const User = require("../models/User");
 const {
   ACTIVE_STATUSES,
+  applyProviderSubscription,
   listActivePlans,
   planView,
+  priceChangeForSubscription,
   publishPlan,
+  razorpayClient,
   subscriptionView,
 } = require("../services/subscriptionService");
 
@@ -45,12 +48,16 @@ exports.dashboard = async (req, res) => {
   const page = Math.max(1, Number(req.query.page || 1));
   const limit = Math.min(100, Math.max(10, Number(req.query.limit || 50)));
 
-  const rawUsers = await User.find({ role: { $ne: "admin" } })
-    .select("_id name storeName email phone role subscription createdAt updatedAt")
-    .sort({ createdAt: -1 })
-    .lean();
+  const [rawUsers, activePlans] = await Promise.all([
+    User.find({ role: { $ne: "admin" } })
+      .select("_id name storeName email phone role subscription accountAccess createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .lean(),
+    listActivePlans(),
+  ]);
   const users = rawUsers.map((user) => {
     const subscription = subscriptionView(user);
+    subscription.priceChange = priceChangeForSubscription(user.subscription || {}, activePlans);
     return {
       id: user._id,
       name: user.name,
@@ -60,6 +67,12 @@ exports.dashboard = async (req, res) => {
       registeredAt: user.createdAt,
       updatedAt: user.updatedAt,
       subscription,
+      accountAccess: {
+        paused: Boolean(user.accountAccess?.paused),
+        pausedAt: user.accountAccess?.pausedAt || null,
+        pauseReason: user.accountAccess?.pauseReason || "",
+        providerPaused: Boolean(user.accountAccess?.providerPaused),
+      },
     };
   });
   const deviceSessions = await DeviceSession.find({
@@ -84,6 +97,8 @@ exports.dashboard = async (req, res) => {
     if (user.subscription.status === "trial_expired") totals.trialExpired += 1;
     if (user.subscription.status === "active") totals.activeSubscriptions += 1;
     if (["pending", "halted"].includes(user.subscription.providerStatus)) totals.paymentAttention += 1;
+    if (user.subscription.priceChange?.required) totals.priceUpdatesPending += 1;
+    if (user.accountAccess.paused) totals.pausedAccounts += 1;
     return totals;
   }, {
     totalUsers: 0,
@@ -92,6 +107,8 @@ exports.dashboard = async (req, res) => {
     activeSubscriptions: 0,
     paymentAttention: 0,
     monthlyRecurringRevenue: 0,
+    priceUpdatesPending: 0,
+    pausedAccounts: 0,
   });
   summary.monthlyRecurringRevenue = Math.round(users.reduce((total, user) => {
     if (user.subscription.status !== "active") return total;
@@ -105,6 +122,8 @@ exports.dashboard = async (req, res) => {
       || [user.name, user.storeName, user.email, user.phone]
         .some((value) => String(value || "").toLowerCase().includes(search));
     const matchesStatus = statusFilter === "all"
+      || (statusFilter === "admin_paused" && user.accountAccess.paused)
+      || (statusFilter === "price_change" && user.subscription.priceChange?.required)
       || user.subscription.status === statusFilter
       || user.subscription.providerStatus === statusFilter;
     return matchesSearch && matchesStatus;
@@ -167,7 +186,7 @@ exports.updatePlan = async (req, res) => {
       success: true,
       data: {
         plan: planView(plan),
-        message: "New users will now receive this price. Existing subscriptions keep their original price.",
+        message: "New subscriptions use this price. Existing subscribers keep their authorised amount and now receive an in-app plan-change notice.",
       },
     });
   } catch (error) {
@@ -244,6 +263,80 @@ exports.forceLogout = async (req, res) => {
     return res.json({
       success: true,
       data: { message: "The user's active phone has been signed out" },
+    });
+  } catch (error) {
+    return res.status(error.name === "CastError" ? 404 : 400).json({
+      success: false,
+      message: error.name === "CastError" ? "User not found" : error.message,
+    });
+  }
+};
+
+exports.setAccountAccess = async (req, res) => {
+  try {
+    const paused = req.body.paused === true;
+    const reason = String(req.body.reason || "").trim().slice(0, 240);
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
+    let providerMessage = "";
+    let providerPaused = Boolean(user.accountAccess?.providerPaused);
+    const providerStatus = String(user.subscription?.status || "").toLowerCase();
+    const providerId = String(user.subscription?.razorpaySubscriptionId || "");
+
+    if (paused && providerId && providerStatus === "active" && !providerPaused) {
+      try {
+        const entity = await razorpayClient().subscriptions.pause(providerId, { pause_at: "now" });
+        await applyProviderSubscription(user, entity, { eventType: "subscription.admin_paused" });
+        providerPaused = true;
+        providerMessage = " Razorpay autopay was paused too.";
+      } catch (error) {
+        providerMessage = ` App access is paused, but Razorpay autopay could not be paused automatically: ${error.error?.description || error.message}`;
+      }
+    }
+
+    if (!paused && providerPaused && providerId) {
+      try {
+        const entity = await razorpayClient().subscriptions.resume(providerId, { resume_at: "now" });
+        await applyProviderSubscription(user, entity, { eventType: "subscription.admin_resumed" });
+        providerPaused = false;
+        providerMessage = " Razorpay autopay was resumed too.";
+      } catch (error) {
+        return res.status(502).json({
+          success: false,
+          message: `Account remains paused because Razorpay autopay could not be resumed: ${error.error?.description || error.message}`,
+        });
+      }
+    }
+
+    user.accountAccess = {
+      ...(user.accountAccess?.toObject?.() || user.accountAccess || {}),
+      paused,
+      pausedAt: paused ? new Date() : null,
+      pausedBy: paused ? req.admin.email : "",
+      pauseReason: paused ? (reason || "Paused by administrator") : "",
+      providerPaused,
+    };
+    await user.save();
+    await SubscriptionEvent.create({
+      dedupeKey: `account.${paused ? "paused" : "resumed"}:${user._id}:${Date.now()}`,
+      userId: user._id,
+      type: `account.${paused ? "paused" : "resumed"}`,
+      status: paused ? "paused" : "active",
+      amount: 0,
+      currency: "INR",
+      occurredAt: new Date(),
+    });
+    return res.json({
+      success: true,
+      data: {
+        userId: user._id,
+        subscription: subscriptionView(user),
+        accountAccess: user.accountAccess,
+        message: paused
+          ? `Account access paused.${providerMessage}`
+          : `Account access resumed.${providerMessage}`,
+      },
     });
   } catch (error) {
     return res.status(error.name === "CastError" ? 404 : 400).json({

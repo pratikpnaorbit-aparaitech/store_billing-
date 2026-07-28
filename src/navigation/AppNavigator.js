@@ -11,6 +11,8 @@ import BillingScreen from "../screens/billing/BillingScreen";
 import ReceiptScreen from "../screens/receipt/ReceiptScreen";
 import ScannerScreen from "../screens/scanner/ScannerScreen";
 import ReportsScreen from "../screens/reports/ReportsScreen";
+import SalesInsightsScreen from "../screens/reports/SalesInsightsScreen";
+import SubscriptionScreen from "../screens/subscription/SubscriptionScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -27,6 +29,8 @@ export default function AppNavigator() {
       <Stack.Screen name="Receipt" component={ReceiptScreen} />
       <Stack.Screen name="BarcodeScanner" component={ScannerScreen} />
       <Stack.Screen name="Reports" component={ReportsScreen} />
+      <Stack.Screen name="SalesInsights" component={SalesInsightsScreen} />
+      <Stack.Screen name="ManageSubscription" component={SubscriptionScreen} />
     </Stack.Navigator>
   );
 }

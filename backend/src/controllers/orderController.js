@@ -86,6 +86,7 @@ exports.createOrder = async (req, res) => {
 
       [savedOrder] = await Order.create([{
         owner: req.userId,
+        storeName: req.user.storeName || req.user.name || "My Store",
         invoiceNo: invoiceNo(req.body.invoiceNo),
         items,
         customerId,

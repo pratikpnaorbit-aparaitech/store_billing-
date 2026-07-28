@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { addCartItem, calculateBill, createInvoiceNo, getOrderAnalytics, reduceProductStock, roundMoney } from "../src/utils/billing.js";
+import { addCartItem, calculateBill, createInvoiceNo, getDailySalesInsights, getOrderAnalytics, reduceProductStock, roundMoney } from "../src/utils/billing.js";
 import { createManualBarcode, isManualBarcode } from "../src/utils/products.js";
+import { buildThermalReceipt } from "../src/utils/printer/thermalReceipt.js";
 
 test("calculates subtotal, GST, discount and total with money rounding", () => {
   assert.deepEqual(calculateBill([{ price: 19.99, quantity: 3 }, { price: 10, quantity: 1 }], 5, 5), {
@@ -41,6 +42,35 @@ test("aggregates completed order analytics", () => {
   });
 });
 
+test("builds date-wise sales and ranks the top product", () => {
+  const insights = getDailySalesInsights([
+    {
+      id: "o1",
+      createdAt: "2026-07-27T10:00:00",
+      total: 210,
+      cart: [{ id: "p1", name: "Powder", price: 100, quantity: 2 }],
+    },
+    {
+      id: "o2",
+      createdAt: "2026-07-27T18:00:00",
+      total: 50,
+      cart: [{ id: "p2", name: "Soap", price: 50, quantity: 1 }],
+    },
+    {
+      id: "o3",
+      createdAt: "2026-07-26T18:00:00",
+      total: 999,
+      cart: [{ id: "p2", name: "Soap", price: 999, quantity: 5 }],
+    },
+  ], "2026-07-27");
+  assert.equal(insights.revenue, 260);
+  assert.equal(insights.totalOrders, 2);
+  assert.equal(insights.productsSold, 3);
+  assert.equal(insights.topProduct.name, "Powder");
+  assert.equal(insights.topProduct.quantity, 2);
+  assert.deepEqual(insights.orders.map((order) => order.id), ["o2", "o1"]);
+});
+
 test("cart addition enforces stock and increments existing lines", () => {
   const product = { id: "p1", name: "Milk", stock: 2, price: 30 };
   const first = addCartItem([], product);
@@ -61,4 +91,15 @@ test("creates unique-looking internal codes for products without a barcode", () 
   assert.match(barcode, /^manual-1722000000000-[a-z0-9]{6}$/);
   assert.equal(isManualBarcode(barcode), true);
   assert.equal(isManualBarcode("8901234567890"), false);
+});
+
+test("prints the registered store name on thermal receipts", () => {
+  const receipt = buildThermalReceipt({
+    storeName: "Vivek Super Mart",
+    invoiceNo: "INV-TEST",
+    cart: [{ name: "Soap", price: 50, quantity: 1 }],
+    total: 50,
+  });
+  assert.match(receipt, /^VIVEK SUPER MART/);
+  assert.doesNotMatch(receipt, /^SMART BILLING/);
 });

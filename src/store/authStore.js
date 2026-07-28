@@ -39,13 +39,16 @@ function refreshCachedEntitlement(user) {
   const paidActive = ["authenticated", "active"].includes(providerStatus)
     || (["cancelled", "completed"].includes(providerStatus)
       && Number.isFinite(currentPeriodEnd)
+      && currentPeriodEnd > now)
+    || (user.subscription.migrationPending
+      && Number.isFinite(currentPeriodEnd)
       && currentPeriodEnd > now);
   return {
     ...user,
     subscription: {
       ...user.subscription,
       trialActive,
-      accessAllowed: trialActive || paidActive,
+      accessAllowed: !user.subscription.adminPaused && (trialActive || paidActive),
       status: paidActive ? "active" : trialActive ? "trial_active" : user.subscription.status,
       trialDaysRemaining: trialActive
         ? Math.max(1, Math.ceil((trialEndsAt - now) / (24 * 60 * 60 * 1000)))
