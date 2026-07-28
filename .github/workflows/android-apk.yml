@@ -7,6 +7,12 @@ on:
       - main
     paths:
       - ".github/workflows/android-apk.yml"
+      - "App.js"
+      - "app.json"
+      - "package.json"
+      - "package-lock.json"
+      - "assets/**"
+      - "src/**"
 
 concurrency:
   group: android-apk-${{ github.ref }}
