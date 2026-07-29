@@ -3,7 +3,7 @@ let catalogueLoadError = "";
 try {
   // Keep this as a static require so deployment builders include the catalogue
   // in the server artifact instead of treating it as an optional runtime file.
-  catalogueDocument = require("../../data/catalogue.json");
+  catalogueDocument = require("../data/catalogue.json");
 } catch (error) {
   catalogueLoadError = error.message;
   console.warn("Shared product catalogue is unavailable:", error.message);

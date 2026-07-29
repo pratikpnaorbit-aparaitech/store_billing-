@@ -3,7 +3,7 @@ const path = require("node:path");
 
 const USER_AGENT = "SmartBilling/1.0 (contact: krushnarathod.aparaitech@gmail.com)";
 const PAGE_SIZE = 100;
-const OUTPUT = path.join(__dirname, "..", "data", "catalogue.json");
+const OUTPUT = path.join(__dirname, "..", "src", "data", "catalogue.json");
 
 const SOURCES = [
   {

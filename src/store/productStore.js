@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { loadProducts, saveProducts } from "../utils/storage";
 import { products as sampleProducts } from "../data/productData";
-import sharedCatalogue from "../../backend/data/catalogue.json";
+import sharedCatalogue from "../../backend/src/data/catalogue.json";
 import { reduceProductStock } from "../utils/billing";
 import {
   adjustProductStock as adjustProductStockApi,
