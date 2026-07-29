@@ -17,6 +17,10 @@ const subscriptionController = require("./src/controllers/subscriptionController
 const mongoose = require("mongoose");
 const validateEnv = require("./src/config/validateEnv");
 const { authConnection, connectAuthDB } = require("./src/config/authDb");
+const {
+  catalogueLoadError,
+  catalogueProducts,
+} = require("./src/services/catalogueService");
 
 const app = express();
 
@@ -52,6 +56,10 @@ app.get("/health", (req, res) => {
     status: "OK",
     database: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
     authDatabase: authConnection.readyState === 1 ? "connected" : "disconnected",
+    catalogue: {
+      status: catalogueLoadError ? "unavailable" : "ready",
+      count: catalogueProducts.length,
+    },
   });
 });
 

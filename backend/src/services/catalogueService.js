@@ -1,10 +1,11 @@
-const path = require("node:path");
-
-const cataloguePath = path.join(__dirname, "..", "..", "data", "catalogue.json");
 let catalogueDocument = { metadata: {}, products: [] };
+let catalogueLoadError = "";
 try {
-  catalogueDocument = require(cataloguePath);
+  // Keep this as a static require so deployment builders include the catalogue
+  // in the server artifact instead of treating it as an optional runtime file.
+  catalogueDocument = require("../../data/catalogue.json");
 } catch (error) {
+  catalogueLoadError = error.message;
   console.warn("Shared product catalogue is unavailable:", error.message);
 }
 
@@ -72,6 +73,7 @@ function mergedProducts(userProducts) {
 }
 
 module.exports = {
+  catalogueLoadError,
   catalogueMetadata: catalogueDocument.metadata || {},
   catalogueProduct,
   catalogueProducts,

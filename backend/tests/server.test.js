@@ -21,6 +21,10 @@ test("reports API and database health", () => withServer(async (origin) => {
     status: "OK",
     database: "disconnected",
     authDatabase: "disconnected",
+    catalogue: {
+      status: "ready",
+      count: 4267,
+    },
   });
 }));
 
