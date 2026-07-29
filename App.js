@@ -13,6 +13,7 @@ import { useOrderStore } from "./src/store/orderStore";
 import { useCustomerStore } from "./src/store/customerStore";
 import { useAuthStore } from "./src/store/authStore";
 import { useSettingsStore } from "./src/store/settingsStore";
+import { preloadCameraPermission } from "./src/services/cameraPermission";
 
 export default function App() {
   const hydrateProducts = useProductStore((state) => state.hydrateProducts);
@@ -34,6 +35,7 @@ export default function App() {
   useEffect(() => {
     hydrateAuth();
     hydrateSettings();
+    preloadCameraPermission();
   }, [hydrateAuth, hydrateSettings]);
 
   useEffect(() => {

@@ -17,6 +17,12 @@ import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { LANGUAGE_OPTIONS, useTranslation } from "../../i18n";
 
+const LANGUAGE_SHORT_LABELS = {
+  en: "ENG",
+  hi: "HIN",
+  mr: "MAR",
+};
+
 function formatPlan(subscription, t) {
   if (subscription?.status === "trial_active") {
     return `${subscription.trialDaysRemaining} ${t("trial days left")}`;
@@ -252,7 +258,9 @@ export default function ProfileScreen({ navigation }) {
                 {active ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
               </View>
               <View style={styles.flex}>
-                <Text style={[styles.languageNative, active && styles.languageNativeActive]}>{option.nativeLabel}</Text>
+                <Text style={[styles.languageNative, active && styles.languageNativeActive]}>
+                  {LANGUAGE_SHORT_LABELS[option.code]}
+                </Text>
                 <Text style={styles.languageEnglish}>{option.label}</Text>
               </View>
             </TouchableOpacity>

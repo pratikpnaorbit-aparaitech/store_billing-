@@ -21,6 +21,10 @@ import ManualProductPicker from "../../components/products/ManualProductPicker";
 import { useProductStore } from "../../store/productStore";
 import { useCartStore } from "../../store/cartStore";
 import { useTranslation } from "../../i18n";
+import {
+  getCachedCameraPermission,
+  rememberCameraPermission,
+} from "../../services/cameraPermission";
 
 const BARCODE_TYPES = [
   "ean13",
@@ -41,6 +45,7 @@ const BARCODE_TYPES = [
 export default function ScannerScreen({ navigation, route }) {
   const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
+  const cameraPermission = permission || getCachedCameraPermission();
   const [scanned, setScanned] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -66,6 +71,15 @@ export default function ScannerScreen({ navigation, route }) {
   const cartCount = useCartStore((state) => (
     state.cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
   ));
+
+  useEffect(() => {
+    rememberCameraPermission(permission);
+  }, [permission]);
+
+  const requestCameraAccess = async () => {
+    const nextPermission = await requestPermission();
+    rememberCameraPermission(nextPermission);
+  };
 
   useEffect(() => {
     const unsubscribeFocus = navigation.addListener("focus", () => {
@@ -299,22 +313,20 @@ export default function ScannerScreen({ navigation, route }) {
     }
   };
 
-  if (!permission) {
+  if (!cameraPermission) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.loadingText}>{t("Loading camera...")}</Text>
-      </View>
+      <View style={styles.cameraWarmup} />
     );
   }
 
-  if (!permission.granted) {
+  if (!cameraPermission.granted) {
     return (
       <View style={styles.permissionScreen}>
         <Ionicons name="camera-outline" size={58} color="#0A46E4" />
         <Text style={styles.permissionTitle}>{t("Camera Permission Required")}</Text>
         <Text style={styles.permissionText}>{t("Allow camera access to scan product barcodes.")}</Text>
 
-        <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+        <TouchableOpacity style={styles.permissionButton} onPress={requestCameraAccess}>
           <Text style={styles.permissionButtonText}>{t("Allow Camera")}</Text>
         </TouchableOpacity>
 
@@ -745,7 +757,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 16,
     right: 16,
-    bottom: 10,
+    bottom: 54,
     gap: 10,
     zIndex: 1001,
     elevation: 1001,
@@ -790,13 +802,10 @@ const styles = StyleSheet.create({
   },
   errorText: { flex: 1, color: "#991B1B", fontSize: 12, fontWeight: "700" },
   retryText: { color: "#991B1B", fontWeight: "900" },
-  center: {
+  cameraWarmup: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#020617",
   },
-  loadingText: { color: "#64748B", fontWeight: "700" },
   permissionScreen: {
     flex: 1,
     backgroundColor: "#F8FAFC",

@@ -136,6 +136,32 @@ export function addCartItem(cart = [], product) {
   return { cart: next, ok: true };
 }
 
+export function setCartItemQuantity(cart = [], id, value) {
+  const item = cart.find((entry) => entry.id === id);
+  if (!item) return { cart, ok: false, quantity: 0, reason: "missing" };
+
+  const requested = Math.trunc(Number(value));
+  if (!Number.isFinite(requested) || requested < 1) {
+    return { cart, ok: false, quantity: item.quantity, reason: "invalid" };
+  }
+
+  const stock = Math.max(0, Math.trunc(Number(item.stock || 0)));
+  const quantity = Math.min(requested, stock);
+  if (quantity < 1) {
+    return { cart, ok: false, quantity: item.quantity, reason: "stock" };
+  }
+
+  const next = cart.map((entry) => (
+    entry.id === id ? { ...entry, quantity } : entry
+  ));
+  return {
+    cart: next,
+    ok: requested <= stock,
+    quantity,
+    reason: requested > stock ? "stock" : "",
+  };
+}
+
 export function reduceProductStock(products = [], cart = []) {
   return products.map((product) => {
     const sold = cart.find((item) => item.id === product.id);

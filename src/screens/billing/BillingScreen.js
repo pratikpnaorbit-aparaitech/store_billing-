@@ -28,6 +28,7 @@ export default function BillingScreen({ navigation }) {
   const cart = useCartStore((state) => state.cart);
   const increaseQty = useCartStore((state) => state.increaseQty);
   const decreaseQty = useCartStore((state) => state.decreaseQty);
+  const setQuantity = useCartStore((state) => state.setQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const bill = useMemo(() => calculateBill(cart, gstRate, discount), [cart, discount, gstRate]);
   const selectedCustomer = customers.find((customer) => customer.id === customerId) || customers[0];
@@ -102,22 +103,14 @@ export default function BillingScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
               <View style={styles.itemBottom}>
-                <View style={styles.qty}>
-                  <TouchableOpacity style={styles.qtyButton} onPress={() => decreaseQty(item.id)}>
-                    <Ionicons name="remove" size={18} color="#0F172A" />
-                  </TouchableOpacity>
-                  <Text style={styles.qtyText}>{item.quantity}</Text>
-                  <TouchableOpacity
-                    style={styles.qtyButton}
-                    onPress={() => {
-                      if (!increaseQty(item.id)) {
-                        Alert.alert(t("Stock limit"), t("No more stock is available."));
-                      }
-                    }}
-                  >
-                    <Ionicons name="add" size={18} color="#0F172A" />
-                  </TouchableOpacity>
-                </View>
+                <QuantityControl
+                  key={`${item.id}:${item.quantity}`}
+                  item={item}
+                  decreaseQty={decreaseQty}
+                  increaseQty={increaseQty}
+                  setQuantity={setQuantity}
+                  t={t}
+                />
                 <Text style={styles.itemTotal}>
                   {formatCurrency(Number(item.price) * item.quantity)}
                 </Text>
@@ -201,6 +194,47 @@ function Row({ label, value, bold }) {
     <View style={styles.row}>
       <Text style={[styles.rowLabel, bold && styles.bold]}>{label}</Text>
       <Text style={[styles.rowValue, bold && styles.total]}>{value}</Text>
+    </View>
+  );
+}
+
+function QuantityControl({ item, decreaseQty, increaseQty, setQuantity, t }) {
+  const [draft, setDraft] = useState(String(item.quantity));
+
+  const commit = () => {
+    const result = setQuantity(item.id, draft);
+    setDraft(String(result.quantity || item.quantity));
+    if (result.reason === "stock") {
+      Alert.alert(t("Stock limit"), t("No more stock is available."));
+    }
+  };
+
+  return (
+    <View style={styles.qty}>
+      <TouchableOpacity style={styles.qtyButton} onPress={() => decreaseQty(item.id)}>
+        <Ionicons name="remove" size={18} color="#0F172A" />
+      </TouchableOpacity>
+      <TextInput
+        value={draft}
+        onChangeText={(value) => setDraft(value.replace(/[^\d]/g, ""))}
+        onEndEditing={commit}
+        onSubmitEditing={commit}
+        keyboardType="number-pad"
+        selectTextOnFocus
+        maxLength={5}
+        style={styles.qtyInput}
+        accessibilityLabel={`${item.name} quantity`}
+      />
+      <TouchableOpacity
+        style={styles.qtyButton}
+        onPress={() => {
+          if (!increaseQty(item.id)) {
+            Alert.alert(t("Stock limit"), t("No more stock is available."));
+          }
+        }}
+      >
+        <Ionicons name="add" size={18} color="#0F172A" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -289,7 +323,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  qtyText: { minWidth: 34, textAlign: "center", fontWeight: "900" },
+  qtyInput: {
+    width: 48,
+    height: 34,
+    color: "#0F172A",
+    textAlign: "center",
+    fontWeight: "900",
+    paddingHorizontal: 4,
+    paddingVertical: 0,
+  },
   itemTotal: { fontSize: 18, fontWeight: "900", color: "#0A46E4" },
   section: { marginTop: 22, marginBottom: 12, fontSize: 18, fontWeight: "900", color: "#0F172A" },
   chip: {

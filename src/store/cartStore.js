@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { loadCart, saveCart } from "../utils/storage";
-import { addCartItem } from "../utils/billing";
+import { addCartItem, setCartItemQuantity } from "../utils/billing";
 
 export const useCartStore = create((set, get) => ({
   cart: [],
@@ -43,6 +43,15 @@ export const useCartStore = create((set, get) => ({
       .filter((item) => item.quantity > 0);
     set({ cart });
     saveCart(cart);
+  },
+
+  setQuantity: (id, quantity) => {
+    const result = setCartItemQuantity(get().cart, id, quantity);
+    if (result.cart !== get().cart) {
+      set({ cart: result.cart });
+      saveCart(result.cart);
+    }
+    return result;
   },
 
   removeItem: (id) => {

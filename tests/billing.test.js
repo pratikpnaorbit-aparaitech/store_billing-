@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { addCartItem, calculateBill, createInvoiceNo, getDailySalesInsights, getOrderAnalytics, reduceProductStock, roundMoney } from "../src/utils/billing.js";
+import { addCartItem, calculateBill, createInvoiceNo, getDailySalesInsights, getOrderAnalytics, reduceProductStock, roundMoney, setCartItemQuantity } from "../src/utils/billing.js";
 import { createManualBarcode, isManualBarcode } from "../src/utils/products.js";
 import { buildThermalReceipt } from "../src/utils/printer/thermalReceipt.js";
 
@@ -80,6 +80,19 @@ test("cart addition enforces stock and increments existing lines", () => {
   const blocked = addCartItem(second.cart, product);
   assert.equal(blocked.ok, false);
   assert.equal(blocked.cart[0].quantity, 2);
+});
+
+test("cart quantity supports exact typing and clamps to available stock", () => {
+  const cart = [{ id: "p1", name: "Milk", stock: 48, price: 30, quantity: 1 }];
+  const exact = setCartItemQuantity(cart, "p1", "25");
+  assert.equal(exact.ok, true);
+  assert.equal(exact.quantity, 25);
+  assert.equal(exact.cart[0].quantity, 25);
+
+  const limited = setCartItemQuantity(exact.cart, "p1", "100");
+  assert.equal(limited.ok, false);
+  assert.equal(limited.reason, "stock");
+  assert.equal(limited.cart[0].quantity, 48);
 });
 
 test("completed sale reduces stock without going below zero", () => {
