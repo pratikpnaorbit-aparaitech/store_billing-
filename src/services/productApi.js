@@ -27,4 +27,16 @@ export const deleteProduct = async (id) => {
   await api.delete(`/products/${id}`);
 };
 
+export const lookupProduct = async (barcode) => {
+  requireRemoteApi();
+  const res = await api.get(`/products/lookup/${encodeURIComponent(barcode)}`);
+  return res.data.data;
+};
+
+export const adjustProductStock = async (id, changes) => {
+  requireRemoteApi();
+  const res = await api.patch(`/products/${encodeURIComponent(id)}/stock`, changes);
+  return res.data.data;
+};
+
 export { hasRemoteApi };

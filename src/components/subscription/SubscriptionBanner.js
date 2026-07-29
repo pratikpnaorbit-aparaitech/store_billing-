@@ -2,10 +2,11 @@ import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
+import { useTranslation } from "../../i18n";
 
-function formatDate(value) {
+function formatDate(value, language) {
   if (!value) return "";
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat({ en: "en-IN", hi: "hi-IN", mr: "mr-IN" }[language] || "en-IN", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -13,19 +14,20 @@ function formatDate(value) {
 }
 
 export default function SubscriptionBanner({ onPress }) {
+  const { language, t } = useTranslation();
   const subscription = useAuthStore((state) => state.user?.subscription);
   if (!subscription) return null;
   const trial = subscription.status === "trial_active";
   const priceChange = subscription.priceChange;
   const monthlyAmount = Number(subscription.plan?.amount || 300);
   const title = trial
-    ? `${subscription.trialDaysRemaining} free trial day${subscription.trialDaysRemaining === 1 ? "" : "s"} left`
-    : `₹${monthlyAmount.toLocaleString("en-IN")} monthly plan active`;
+    ? `${subscription.trialDaysRemaining} ${t("free trial days left")}`
+    : `₹${monthlyAmount.toLocaleString("en-IN")} ${t("monthly plan active")}`;
   const detail = trial
-    ? `Free access ends ${formatDate(subscription.trialEndsAt)}`
+    ? `${t("Free access ends")} ${formatDate(subscription.trialEndsAt, language)}`
     : subscription.nextChargeAt
-      ? `Next charge ${formatDate(subscription.nextChargeAt)}`
-      : "Your subscription is verified";
+      ? `${t("Next charge")} ${formatDate(subscription.nextChargeAt, language)}`
+      : t("Your subscription is verified");
 
   if (priceChange?.required) {
     return (
@@ -34,8 +36,8 @@ export default function SubscriptionBanner({ onPress }) {
           <Ionicons name="notifications" size={22} color="#B45309" />
         </View>
         <View style={styles.copy}>
-          <Text style={styles.title}>Subscription price updated</Text>
-          <Text style={styles.detail}>Tap to stop old autopay and authorise the latest plan</Text>
+          <Text style={styles.title}>{t("Subscription price updated")}</Text>
+          <Text style={styles.detail}>{t("Tap to stop old autopay and authorise the latest plan")}</Text>
         </View>
         <Ionicons name="chevron-forward" size={19} color="#B45309" />
       </TouchableOpacity>

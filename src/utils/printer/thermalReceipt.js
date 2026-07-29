@@ -10,7 +10,9 @@ export function buildThermalReceipt({
   total = 0,
   customer,
   storeName = "My Store",
+  labels = {},
 }) {
+  const label = (key, fallback) => labels[key] || fallback;
   const line = "--------------------------------";
   const money = (value) => Number(value || 0).toFixed(2);
   const items = cart.map((item) => {
@@ -21,23 +23,23 @@ export function buildThermalReceipt({
     return `${name} ${qty} ${price} ${amount}`;
   }).join("\n");
   return `${String(storeName).toUpperCase()}
-Scan • Bill • Print
+${label("tagline", "Scan • Bill • Print")}
 ${line}
-Invoice: ${invoiceNo}
-Date: ${date}
-Customer: ${customer?.name || "Walk-in Customer"}
-Payment: ${payment}
+${label("invoice", "Invoice")}: ${invoiceNo}
+${label("date", "Date")}: ${date}
+${label("customer", "Customer")}: ${customer?.name || label("walkInCustomer", "Walk-in Customer")}
+${label("payment", "Payment")}: ${payment}
 ${line}
-ITEM          QTY  RATE   TOTAL
+${label("item", "ITEM")}          ${label("qty", "QTY")}  ${label("rate", "RATE")}   ${label("total", "TOTAL")}
 ${line}
 ${items}
 ${line}
-Subtotal: ₹${money(subtotal)}
+${label("subtotal", "Subtotal")}: ₹${money(subtotal)}
 GST ${gstRate}%: ₹${money(gst)}
-Discount: ₹${money(discount)}
+${label("discount", "Discount")}: ₹${money(discount)}
 ${line}
-TOTAL: ₹${money(total)}
+${label("total", "TOTAL")}: ₹${money(total)}
 ${line}
-Thank You!
+${label("thankYou", "Thank You")}!
 `;
 }

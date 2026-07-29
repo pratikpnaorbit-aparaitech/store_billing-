@@ -14,6 +14,12 @@ const ProductSchema = new mongoose.Schema(
       trim: true,
     },
 
+    brand: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
     barcode: {
       type: String,
       required: true,
@@ -50,6 +56,13 @@ const ProductSchema = new mongoose.Schema(
     imagePublicId: {
       type: String,
       default: "",
+    },
+
+    source: {
+      type: String,
+      enum: ["custom", "catalogue", "import"],
+      default: "custom",
+      index: true,
     },
 
     active: {

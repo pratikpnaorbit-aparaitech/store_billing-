@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
+import { useTranslation } from "../../i18n";
 
 export default function SignUpScreen({ navigation }) {
+  const { t } = useTranslation();
   const cloudMode = useAuthStore((state) => state.cloudMode);
   const requestRegistration = useAuthStore((state) => state.requestRegistration);
   const verifyRegistration = useAuthStore((state) => state.verifyRegistration);
@@ -20,11 +22,11 @@ export default function SignUpScreen({ navigation }) {
     setAccountExists(false);
     const phone = form.phone.replace(/[\s()-]/g, "");
     if (!form.name.trim() || !form.storeName.trim() || !/^\S+@\S+\.\S+$/.test(form.email.trim()) || !/^\+?\d{10,15}$/.test(phone) || form.password.length < 8) {
-      Alert.alert("Check details", "Name, store name, valid email, 10–15 digit mobile number and a password of at least 8 characters are required.");
+      Alert.alert(t("Check details"), t("Name, store name, valid email, 10–15 digit mobile number and a password of at least 8 characters are required."));
       return;
     }
     if (form.password !== form.confirm) {
-      Alert.alert("Passwords do not match", "Re-enter the same password in both fields.");
+      Alert.alert(t("Passwords do not match"), t("Re-enter the same password in both fields."));
       return;
     }
     setBusy(true);
@@ -43,11 +45,11 @@ export default function SignUpScreen({ navigation }) {
   };
 
   const verifyCode = async () => {
-    if (!/^\d{6}$/.test(code)) return Alert.alert("Check code", "Enter the 6 digit code sent to your email.");
+    if (!/^\d{6}$/.test(code)) return Alert.alert(t("Check code"), t("Enter the 6 digit code sent to your email."));
     setBusy(true);
     const result = await verifyRegistration(form.email, code);
     setBusy(false);
-    if (!result.ok) return Alert.alert("Verification failed", result.message);
+    if (!result.ok) return Alert.alert(t("Verification failed"), result.message);
     navigation.reset({ index: 0, routes: [{ name: "Main" }] });
   };
 
@@ -58,26 +60,26 @@ export default function SignUpScreen({ navigation }) {
           <TouchableOpacity onPress={() => step === "verify" ? setStep("details") : navigation.goBack()} style={styles.back}>
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </TouchableOpacity>
-          <View><Text style={styles.title}>{step === "details" ? "Create account" : "Verify email"}</Text><Text style={styles.subtitle}>{step === "details" ? "Set up your billing account" : `Code sent to ${form.email.trim().toLowerCase()}`}</Text></View>
+          <View><Text style={styles.title}>{step === "details" ? t("Create account") : t("Verify email")}</Text><Text style={styles.subtitle}>{step === "details" ? t("Set up your billing account") : `${t("Code sent to")} ${form.email.trim().toLowerCase()}`}</Text></View>
         </View>
 
         {step === "details" ? (
           <>
             {[["Your name", "name", "default"], ["Store name", "storeName", "default"], ["Email", "email", "email-address"], ["Mobile number", "phone", "phone-pad"], ["Password", "password", "default"], ["Confirm password", "confirm", "default"]].map(([label, key, keyboard]) => (
-              <View key={key}><Text style={styles.label}>{label}</Text><TextInput value={form[key]} onChangeText={(value) => setField(key, value)} keyboardType={keyboard} autoCapitalize={key === "email" ? "none" : "words"} secureTextEntry={key === "password" || key === "confirm"} style={styles.input} placeholder={label} /></View>
+              <View key={key}><Text style={styles.label}>{t(label)}</Text><TextInput value={form[key]} onChangeText={(value) => setField(key, value)} keyboardType={keyboard} autoCapitalize={key === "email" ? "none" : "words"} secureTextEntry={key === "password" || key === "confirm"} style={styles.input} placeholder={t(label)} /></View>
             ))}
-            {formError ? <View style={styles.errorBox}><Ionicons name={accountExists ? "person-circle-outline" : "alert-circle-outline"} size={24} color="#B91C1C" /><View style={styles.errorContent}><Text style={styles.errorTitle}>{accountExists ? "Account already exists" : "Registration could not continue"}</Text><Text style={styles.errorText}>{formError}</Text></View></View> : null}
-            {accountExists ? <View style={styles.existingActions}><TouchableOpacity style={styles.loginButton} onPress={() => navigation.replace("Login", { email: form.email.trim().toLowerCase() })}><Text style={styles.loginButtonText}>GO TO LOGIN</Text></TouchableOpacity><TouchableOpacity style={styles.resetButton} onPress={() => navigation.navigate("ForgotPassword", { email: form.email.trim().toLowerCase() })}><Text style={styles.resetButtonText}>RESET PASSWORD</Text></TouchableOpacity></View> : null}
-            <TouchableOpacity style={styles.button} onPress={sendCode} disabled={busy}><Text style={styles.buttonText}>{busy ? "SENDING CODE..." : cloudMode ? "SEND VERIFICATION CODE" : "CREATE ACCOUNT"}</Text></TouchableOpacity>
+            {formError ? <View style={styles.errorBox}><Ionicons name={accountExists ? "person-circle-outline" : "alert-circle-outline"} size={24} color="#B91C1C" /><View style={styles.errorContent}><Text style={styles.errorTitle}>{t(accountExists ? "Account already exists" : "Registration could not continue")}</Text><Text style={styles.errorText}>{formError}</Text></View></View> : null}
+            {accountExists ? <View style={styles.existingActions}><TouchableOpacity style={styles.loginButton} onPress={() => navigation.replace("Login", { email: form.email.trim().toLowerCase() })}><Text style={styles.loginButtonText}>{t("GO TO LOGIN")}</Text></TouchableOpacity><TouchableOpacity style={styles.resetButton} onPress={() => navigation.navigate("ForgotPassword", { email: form.email.trim().toLowerCase() })}><Text style={styles.resetButtonText}>{t("RESET PASSWORD")}</Text></TouchableOpacity></View> : null}
+            <TouchableOpacity style={styles.button} onPress={sendCode} disabled={busy}><Text style={styles.buttonText}>{busy ? t("SENDING CODE...") : cloudMode ? t("SEND VERIFICATION CODE") : t("CREATE ACCOUNT")}</Text></TouchableOpacity>
           </>
         ) : (
           <>
-            <View style={styles.notice}><Ionicons name="mail-unread-outline" size={28} color="#0A46E4" /><Text style={styles.noticeText}>Enter the 6 digit verification code. It expires in 15 minutes.</Text></View>
-            <Text style={styles.label}>Verification code</Text>
+            <View style={styles.notice}><Ionicons name="mail-unread-outline" size={28} color="#0A46E4" /><Text style={styles.noticeText}>{t("Enter the 6 digit verification code. It expires in 15 minutes.")}</Text></View>
+            <Text style={styles.label}>{t("Verification code")}</Text>
             <TextInput value={code} onChangeText={(value) => setCode(value.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} style={[styles.input, styles.code]} placeholder="000000" />
-            <TouchableOpacity style={styles.button} onPress={verifyCode} disabled={busy}><Text style={styles.buttonText}>{busy ? "VERIFYING..." : "VERIFY & CREATE ACCOUNT"}</Text></TouchableOpacity>
-            <TouchableOpacity onPress={sendCode} disabled={busy}><Text style={styles.link}>Resend verification code</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setStep("details")} disabled={busy}><Text style={styles.mutedLink}>Change email or details</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.button} onPress={verifyCode} disabled={busy}><Text style={styles.buttonText}>{t(busy ? "VERIFYING..." : "VERIFY & CREATE ACCOUNT")}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={sendCode} disabled={busy}><Text style={styles.link}>{t("Resend verification code")}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setStep("details")} disabled={busy}><Text style={styles.mutedLink}>{t("Change email or details")}</Text></TouchableOpacity>
           </>
         )}
       </ScrollView>

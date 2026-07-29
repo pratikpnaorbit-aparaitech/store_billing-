@@ -1,15 +1,17 @@
 import React from "react";
 import { View, TextInput, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "../../i18n";
 
 export default function SearchBar({ value, onChangeText }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <Ionicons name="search-outline" size={20} color="#64748B" />
       <TextInput
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search products..."
+        placeholder={t("Search products...")}
         placeholderTextColor="#94A3B8"
         style={styles.input}
       />

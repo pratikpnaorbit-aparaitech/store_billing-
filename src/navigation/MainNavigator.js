@@ -8,15 +8,18 @@ import ScannerScreen from "../screens/scanner/ScannerScreen";
 import OrderHistoryScreen from "../screens/orders/OrderHistoryScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import CustomerScreen from "../screens/customers/CustomerScreen";
+import { useTranslation } from "../i18n";
 
 const Tab = createBottomTabNavigator();
 
 export default function MainNavigator() {
+  const { t } = useTranslation();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarShowLabel: true,
+        tabBarLabel: t(route.name),
         tabBarActiveTintColor: "#0A46E4",
         tabBarInactiveTintColor: "#94A3B8",
         tabBarStyle: {

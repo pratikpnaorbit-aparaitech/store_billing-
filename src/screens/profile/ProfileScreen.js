@@ -15,15 +15,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
+import { LANGUAGE_OPTIONS, useTranslation } from "../../i18n";
 
-function formatPlan(subscription) {
+function formatPlan(subscription, t) {
   if (subscription?.status === "trial_active") {
-    return `${subscription.trialDaysRemaining} trial day${subscription.trialDaysRemaining === 1 ? "" : "s"} left`;
+    return `${subscription.trialDaysRemaining} ${t("trial days left")}`;
   }
   if (subscription?.status === "active") {
-    return `₹${Number(subscription.plan?.amount || 0).toLocaleString("en-IN")} / ${subscription.plan?.durationMonths || 1} month(s)`;
+    const months = subscription.plan?.durationMonths || 1;
+    return `₹${Number(subscription.plan?.amount || 0).toLocaleString("en-IN")} / ${months} ${t(months === 1 ? "month" : "months")}`;
   }
-  return "Subscription required";
+  return t("Subscription required");
 }
 
 function ProfileAction({ icon, title, detail, tone, onPress, badge }) {
@@ -64,6 +66,7 @@ function Field({ label, icon, value, onChangeText, keyboardType = "default", sec
 }
 
 export default function ProfileScreen({ navigation }) {
+  const { language, t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const updateProfile = useAuthStore((state) => state.updateProfile);
   const logout = useAuthStore((state) => state.logout);
@@ -89,11 +92,11 @@ export default function ProfileScreen({ navigation }) {
 
   const save = async () => {
     if (!name.trim() || !storeName.trim()) {
-      return Alert.alert("Missing details", "Name and store name are required.");
+      return Alert.alert(t("Missing details"), t("Name and store name are required."));
     }
     const rate = Number(gstRate);
     if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
-      return Alert.alert("Invalid GST", "GST rate must be between 0 and 100.");
+      return Alert.alert(t("Invalid GST"), t("GST rate must be between 0 and 100."));
     }
     setSaving(true);
     try {
@@ -101,9 +104,9 @@ export default function ProfileScreen({ navigation }) {
         updateProfile({ name: name.trim(), storeName: storeName.trim() }),
         updateSettings({ gstRate: rate }),
       ]);
-      Alert.alert("Profile updated", "Your store name and billing preferences were saved.");
+      Alert.alert(t("Profile updated"), t("Your store name and billing preferences were saved."));
     } catch (error) {
-      Alert.alert("Could not save", error.message);
+      Alert.alert(t("Could not save"), error.message);
     } finally {
       setSaving(false);
     }
@@ -112,33 +115,33 @@ export default function ProfileScreen({ navigation }) {
   const updatePassword = async () => {
     if (!currentPassword || newPassword.length < 8) {
       return Alert.alert(
-        "Check password",
-        "Enter the current password and a new password of at least 8 characters.",
+        t("Check password"),
+        t("Enter the current password and a new password of at least 8 characters."),
       );
     }
     const result = await changePassword(currentPassword, newPassword);
-    if (!result.ok) return Alert.alert("Password not changed", result.message);
+    if (!result.ok) return Alert.alert(t("Password not changed"), result.message);
     setCurrentPassword("");
     setNewPassword("");
     setShowSecurity(false);
-    return Alert.alert("Password changed", "Your account password was updated.");
+    return Alert.alert(t("Password changed"), t("Your account password was updated."));
   };
 
   const openSupport = async () => {
     const message = [
-      "Hello Smart Billing Support,",
-      "I need help with my billing app account.",
-      `Store: ${user?.storeName || "Not set"}`,
-      `Name: ${user?.name || "User"}`,
-      `Email: ${user?.email || "Not available"}`,
+      t("Hello Smart Billing Support,"),
+      t("I need help with my billing app account."),
+      `${t("Store")}: ${user?.storeName || t("Not set")}`,
+      `${t("Name")}: ${user?.name || t("User")}`,
+      `${t("Email")}: ${user?.email || t("Not available")}`,
       "",
-      "My issue: ",
+      t("My issue: "),
     ].join("\n");
     const url = `https://wa.me/919158852129?text=${encodeURIComponent(message)}`;
     try {
       await Linking.openURL(url);
     } catch {
-      Alert.alert("WhatsApp could not open", "Please contact support on +91 91588 52129.");
+      Alert.alert(t("WhatsApp could not open"), t("Please contact support on +91 91588 52129."));
     }
   };
 
@@ -160,12 +163,12 @@ export default function ProfileScreen({ navigation }) {
     >
       <View style={styles.pageHeading}>
         <View>
-          <Text style={styles.eyebrow}>ACCOUNT & STORE</Text>
-          <Text style={styles.pageTitle}>Profile</Text>
+          <Text style={styles.eyebrow}>{t("ACCOUNT & STORE")}</Text>
+          <Text style={styles.pageTitle}>{t("Profile")}</Text>
         </View>
         <View style={[styles.cloudPill, connectionStatus === "online" ? styles.online : styles.offline]}>
           <View style={[styles.statusDot, { backgroundColor: connectionStatus === "online" ? "#16A34A" : "#D97706" }]} />
-          <Text style={styles.cloudText}>{cloudMode ? connectionStatus : "offline"}</Text>
+          <Text style={styles.cloudText}>{t(cloudMode ? connectionStatus : "offline")}</Text>
         </View>
       </View>
 
@@ -174,8 +177,8 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.avatarText}>{(name || "U").charAt(0).toUpperCase()}</Text>
         </View>
         <View style={styles.identityCopy}>
-          <Text style={styles.storeName} numberOfLines={1}>{storeName || "My Store"}</Text>
-          <Text style={styles.ownerName}>{name || "Store owner"}</Text>
+          <Text style={styles.storeName} numberOfLines={1}>{storeName || t("My Store")}</Text>
+          <Text style={styles.ownerName}>{name || t("Store owner")}</Text>
           <View style={styles.emailRow}>
             <Ionicons name="mail-outline" size={14} color="#BFDBFE" />
             <Text style={styles.emailText} numberOfLines={1}>{user?.email}</Text>
@@ -183,7 +186,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
         <View style={styles.planPill}>
           <Ionicons name="shield-checkmark" size={14} color="#FFFFFF" />
-          <Text style={styles.planPillText}>{formatPlan(subscription)}</Text>
+          <Text style={styles.planPillText}>{formatPlan(subscription, t)}</Text>
         </View>
       </LinearGradient>
 
@@ -197,7 +200,7 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="notifications" size={22} color="#B45309" />
           </View>
           <View style={styles.flex}>
-            <Text style={styles.priceAlertTitle}>Subscription price updated</Text>
+            <Text style={styles.priceAlertTitle}>{t("Subscription price updated")}</Text>
             <Text style={styles.priceAlertText}>
               Current ₹{Number(priceChange.currentPlan?.amount || 0).toLocaleString("en-IN")} • Latest ₹{Number(priceChange.latestPlan?.amount || 0).toLocaleString("en-IN")}
             </Text>
@@ -206,44 +209,69 @@ export default function ProfileScreen({ navigation }) {
         </TouchableOpacity>
       ) : null}
 
-      <Text style={styles.sectionTitle}>Business tools</Text>
+      <Text style={styles.sectionTitle}>{t("Business tools")}</Text>
       <View style={styles.actionList}>
         <ProfileAction
           icon="analytics-outline"
-          title="Daily sales insights"
-          detail="Sales, bills and top product by date"
+          title={t("Daily sales insights")}
+          detail={t("Sales, bills and top product by date")}
           tone="#0A46E4"
           onPress={() => rootNavigate("SalesInsights")}
         />
         <ProfileAction
           icon="card-outline"
-          title="Subscription"
-          detail={formatPlan(subscription)}
+          title={t("Subscription")}
+          detail={formatPlan(subscription, t)}
           tone="#7C3AED"
           badge={priceChange?.required ? "Update" : ""}
           onPress={() => rootNavigate("ManageSubscription", priceChange?.required ? { migration: true } : { manage: true })}
         />
         <ProfileAction
           icon="logo-whatsapp"
-          title="Help & support"
-          detail="Chat with support on WhatsApp"
+          title={t("Help & support")}
+          detail={t("Chat with support on WhatsApp")}
           tone="#16A34A"
           onPress={openSupport}
         />
       </View>
 
       <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>{t("App language")}</Text>
+        <Text style={styles.sectionSubtitle}>{t("Choose the language used across the app.")}</Text>
+      </View>
+      <View style={styles.languageCard}>
+        {LANGUAGE_OPTIONS.map((option) => {
+          const active = language === option.code;
+          return (
+            <TouchableOpacity
+              key={option.code}
+              style={[styles.languageOption, active && styles.languageOptionActive]}
+              onPress={() => updateSettings({ language: option.code })}
+            >
+              <View style={[styles.languageCheck, active && styles.languageCheckActive]}>
+                {active ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
+              </View>
+              <View style={styles.flex}>
+                <Text style={[styles.languageNative, active && styles.languageNativeActive]}>{option.nativeLabel}</Text>
+                <Text style={styles.languageEnglish}>{option.label}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={styles.sectionHeading}>
         <View>
-          <Text style={styles.sectionTitle}>Store details</Text>
-          <Text style={styles.sectionSubtitle}>This store name appears on every bill.</Text>
+          <Text style={styles.sectionTitle}>{t("Store details")}</Text>
+          <Text style={styles.sectionSubtitle}>{t("This store name appears on every bill.")}</Text>
         </View>
       </View>
       <View style={styles.formCard}>
-        <Field label="Owner name" icon="person-outline" value={name} onChangeText={setName} />
-        <Field label="Store name" icon="storefront-outline" value={storeName} onChangeText={setStoreName} />
-        <Field label="Default GST %" icon="calculator-outline" value={gstRate} onChangeText={setGstRate} keyboardType="decimal-pad" />
+        <Field label={t("Owner name")} icon="person-outline" value={name} onChangeText={setName} />
+        <Field label={t("Store name")} icon="storefront-outline" value={storeName} onChangeText={setStoreName} />
+        <Field label={t("Default GST %")} icon="calculator-outline" value={gstRate} onChangeText={setGstRate} keyboardType="decimal-pad" />
         <View style={styles.readOnlyField}>
-          <Text style={styles.label}>Account email</Text>
+          <Text style={styles.label}>{t("Account email")}</Text>
           <View style={styles.readOnly}>
             <Ionicons name="lock-closed-outline" size={18} color="#94A3B8" />
             <Text style={styles.readOnlyText}>{user?.email}</Text>
@@ -251,7 +279,7 @@ export default function ProfileScreen({ navigation }) {
         </View>
         <TouchableOpacity style={[styles.save, saving && styles.disabled]} onPress={save} disabled={saving}>
           <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" />
-          <Text style={styles.saveText}>{saving ? "Saving..." : "Save store profile"}</Text>
+          <Text style={styles.saveText}>{saving ? t("Saving...") : t("Save store profile")}</Text>
         </TouchableOpacity>
       </View>
 
@@ -262,17 +290,17 @@ export default function ProfileScreen({ navigation }) {
               <Ionicons name="key-outline" size={21} color="#0F172A" />
             </View>
             <View style={styles.flex}>
-              <Text style={styles.securityTitle}>Password & security</Text>
-              <Text style={styles.securityText}>Change your account password</Text>
+              <Text style={styles.securityTitle}>{t("Password & security")}</Text>
+              <Text style={styles.securityText}>{t("Change your account password")}</Text>
             </View>
             <Ionicons name={showSecurity ? "chevron-up" : "chevron-down"} size={20} color="#64748B" />
           </TouchableOpacity>
           {showSecurity ? (
             <View style={styles.securityForm}>
-              <Field label="Current password" icon="lock-closed-outline" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry />
-              <Field label="New password" icon="shield-outline" value={newPassword} onChangeText={setNewPassword} secureTextEntry />
+              <Field label={t("Current password")} icon="lock-closed-outline" value={currentPassword} onChangeText={setCurrentPassword} secureTextEntry />
+              <Field label={t("New password")} icon="shield-outline" value={newPassword} onChangeText={setNewPassword} secureTextEntry />
               <TouchableOpacity style={styles.passwordButton} onPress={updatePassword}>
-                <Text style={styles.passwordButtonText}>Update password</Text>
+                <Text style={styles.passwordButtonText}>{t("Update password")}</Text>
               </TouchableOpacity>
             </View>
           ) : null}
@@ -281,26 +309,26 @@ export default function ProfileScreen({ navigation }) {
 
       <TouchableOpacity style={styles.logout} onPress={() => setShowLogout(true)}>
         <Ionicons name="log-out-outline" size={20} color="#DC2626" />
-        <Text style={styles.logoutText}>Log out from this phone</Text>
+        <Text style={styles.logoutText}>{t("Log out from this phone")}</Text>
       </TouchableOpacity>
       <Text style={styles.note}>
         {cloudMode
-          ? "Your business data is securely synced. Cached data is removed from this phone after logout."
-          : "Products, orders and customers are stored on this phone."}
+          ? t("Your business data is securely synced. Cached data is removed from this phone after logout.")
+          : t("Products, orders and customers are stored on this phone.")}
       </Text>
 
       <Modal visible={showLogout} transparent animationType="fade" onRequestClose={() => !signingOut && setShowLogout(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}><Ionicons name="log-out-outline" size={28} color="#DC2626" /></View>
-            <Text style={styles.modalTitle}>Log out?</Text>
-            <Text style={styles.modalText}>Cached company data will be cleared from this phone. You can sign in again anytime.</Text>
+            <Text style={styles.modalTitle}>{t("Log out?")}</Text>
+            <Text style={styles.modalText}>{t("Cached company data will be cleared from this phone. You can sign in again anytime.")}</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelButton} onPress={() => setShowLogout(false)} disabled={signingOut}>
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>{t("Cancel")}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.confirmButton} onPress={confirmSignOut} disabled={signingOut}>
-                <Text style={styles.confirmText}>{signingOut ? "Logging out..." : "Log out"}</Text>
+                <Text style={styles.confirmText}>{signingOut ? t("Logging out...") : t("Log out")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -339,6 +367,14 @@ const styles = StyleSheet.create({
   sectionHeading: { marginTop: 26 },
   sectionTitle: { color: "#0F172A", fontSize: 19, fontWeight: "900", marginTop: 26, marginBottom: 12 },
   sectionSubtitle: { color: "#64748B", fontSize: 12, marginTop: -8, marginBottom: 12 },
+  languageCard: { flexDirection: "row", gap: 8, padding: 9, borderRadius: 22, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0" },
+  languageOption: { flex: 1, minWidth: 0, borderRadius: 17, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E2E8F0", padding: 11, alignItems: "center" },
+  languageOptionActive: { backgroundColor: "#EFF6FF", borderColor: "#93C5FD" },
+  languageCheck: { width: 24, height: 24, borderRadius: 9, borderWidth: 1, borderColor: "#CBD5E1", alignItems: "center", justifyContent: "center", marginBottom: 7 },
+  languageCheckActive: { backgroundColor: "#0A46E4", borderColor: "#0A46E4" },
+  languageNative: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
+  languageNativeActive: { color: "#0A46E4" },
+  languageEnglish: { color: "#64748B", fontSize: 9, fontWeight: "700", marginTop: 3 },
   actionList: { borderRadius: 24, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", overflow: "hidden" },
   actionCard: { minHeight: 78, flexDirection: "row", alignItems: "center", padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E2E8F0" },
   actionIcon: { width: 48, height: 48, borderRadius: 17, alignItems: "center", justifyContent: "center", marginRight: 12 },

@@ -3,8 +3,10 @@ import { Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInp
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../../store/authStore";
+import { useTranslation } from "../../i18n";
 
 export default function LoginScreen({ navigation, route }) {
+  const { t } = useTranslation();
   const login = useAuthStore((state) => state.login);
   const [email, setEmail] = useState(route?.params?.email || "");
   const [password, setPassword] = useState("");
@@ -13,7 +15,7 @@ export default function LoginScreen({ navigation, route }) {
 
   const submit = async () => {
     if (!/^\S+@\S+\.\S+$/.test(email) || !password) {
-      Alert.alert("Check details", "Enter a valid email and password.");
+      Alert.alert(t("Check details"), t("Enter a valid email and password."));
       return;
     }
     setBusy(true);
@@ -23,7 +25,7 @@ export default function LoginScreen({ navigation, route }) {
       const title = result.code === "DEVICE_ALREADY_ACTIVE"
         ? "Account active on another phone"
         : "Login failed";
-      return Alert.alert(title, result.message);
+      return Alert.alert(t(title), result.message);
     }
     navigation.reset({ index: 0, routes: [{ name: "Main" }] });
   };
@@ -33,17 +35,17 @@ export default function LoginScreen({ navigation, route }) {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
         <View style={styles.brandBox}>
           <View style={styles.logoBox}><Image source={require("../../assets/images/logo.png")} style={styles.logo} resizeMode="contain" /></View>
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Manage billing, products and receipts</Text>
+          <Text style={styles.title}>{t("Welcome Back")}</Text>
+          <Text style={styles.subtitle}>{t("Manage billing, products and receipts")}</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.label}>Email Address</Text>
+          <Text style={styles.label}>{t("Email Address")}</Text>
           <View style={styles.inputBox}><Ionicons name="mail-outline" size={20} color="#64748B" /><TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" style={styles.input} /></View>
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color="#64748B" /><TextInput value={password} onChangeText={setPassword} placeholder="Your password" secureTextEntry={!showPassword} style={styles.input} /><TouchableOpacity onPress={() => setShowPassword((value) => !value)}><Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" /></TouchableOpacity></View>
-          <TouchableOpacity style={styles.forgot} onPress={() => navigation.navigate("ForgotPassword")}><Text style={styles.link}>Forgot Password?</Text></TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.88} onPress={submit} disabled={busy}><LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.button}><Text style={styles.buttonText}>{busy ? "PLEASE WAIT..." : "LOGIN"}</Text></LinearGradient></TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate("SignUp")}><Text style={styles.createText}>Create new account</Text></TouchableOpacity>
+          <Text style={styles.label}>{t("Password")}</Text>
+          <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color="#64748B" /><TextInput value={password} onChangeText={setPassword} placeholder={t("Password")} secureTextEntry={!showPassword} style={styles.input} /><TouchableOpacity onPress={() => setShowPassword((value) => !value)}><Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" /></TouchableOpacity></View>
+          <TouchableOpacity style={styles.forgot} onPress={() => navigation.navigate("ForgotPassword")}><Text style={styles.link}>{t("Forgot Password?")}</Text></TouchableOpacity>
+          <TouchableOpacity activeOpacity={0.88} onPress={submit} disabled={busy}><LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.button}><Text style={styles.buttonText}>{busy ? t("PLEASE WAIT...") : t("LOGIN")}</Text></LinearGradient></TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate("SignUp")}><Text style={styles.createText}>{t("Create new account")}</Text></TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </LinearGradient>

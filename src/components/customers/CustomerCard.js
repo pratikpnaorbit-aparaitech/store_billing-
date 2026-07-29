@@ -1,8 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "../../i18n";
 
 export default function CustomerCard({ customer }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.card}>
       <View style={styles.avatar}>
@@ -11,9 +13,9 @@ export default function CustomerCard({ customer }) {
 
       <View style={styles.info}>
         <Text style={styles.name}>{customer.name}</Text>
-        <Text style={styles.phone}>{customer.phone || "No mobile number"}</Text>
+        <Text style={styles.phone}>{customer.phone || t("No mobile number")}</Text>
         <Text style={styles.meta}>
-          {customer.totalOrders || 0} orders • ₹{customer.totalSpent || 0}
+          {customer.totalOrders || 0} {t("Orders")} • ₹{customer.totalSpent || 0}
         </Text>
       </View>
 

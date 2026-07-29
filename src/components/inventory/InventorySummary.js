@@ -1,25 +1,29 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "../../i18n";
 
 export default function InventorySummary({ products = [] }) {
-  const total = products.length;
+  const { t } = useTranslation();
+  const total = products.filter((product) => (
+    Number(product.stock || 0) > 0 || !product.catalogue || product.virtual === false
+  )).length;
   const lowStock = products.filter(
     (p) => Number(p.stock) > 0 && Number(p.stock) <= 10,
   ).length;
-  const outOfStock = products.filter((p) => Number(p.stock) === 0).length;
+  const catalogue = products.filter((product) => product.catalogue).length;
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Ionicons name="cube-outline" size={22} color="#0A46E4" />
-        <Text style={styles.title}>Inventory</Text>
+        <Text style={styles.title}>{t("Inventory")}</Text>
       </View>
 
       <View style={styles.row}>
-        <Stat label="Products" value={total} color="#0A46E4" />
-        <Stat label="Low Stock" value={lowStock} color="#F59E0B" />
-        <Stat label="Out" value={outOfStock} color="#EF4444" />
+        <Stat label={t("My Inventory")} value={total} color="#0A46E4" />
+        <Stat label={t("Low Stock")} value={lowStock} color="#F59E0B" />
+        <Stat label={t("Catalogue")} value={catalogue} color="#7C3AED" />
       </View>
     </View>
   );

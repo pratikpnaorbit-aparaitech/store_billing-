@@ -3,8 +3,10 @@ import { ActivityIndicator, Alert, Linking, SafeAreaView, StyleSheet, Text, Touc
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../../store/authStore";
+import { useTranslation } from "../../i18n";
 
 export default function AccountPausedScreen() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const refreshSubscription = useAuthStore((state) => state.refreshSubscription);
   const logout = useAuthStore((state) => state.logout);
@@ -12,15 +14,15 @@ export default function AccountPausedScreen() {
 
   const contactSupport = async () => {
     const message = [
-      "Hello Smart Billing Support,",
-      "My account is paused and I need assistance.",
-      `Store: ${user?.storeName || "Not set"}`,
-      `Email: ${user?.email || "Not available"}`,
+      t("Hello Smart Billing Support,"),
+      t("My account is paused and I need assistance."),
+      `${t("Store")}: ${user?.storeName || t("Not set")}`,
+      `${t("Email")}: ${user?.email || t("Not available")}`,
     ].join("\n");
     try {
       await Linking.openURL(`https://wa.me/919158852129?text=${encodeURIComponent(message)}`);
     } catch {
-      Alert.alert("Contact support", "WhatsApp: +91 91588 52129");
+      Alert.alert(t("Contact support"), "WhatsApp: +91 91588 52129");
     }
   };
 
@@ -29,7 +31,7 @@ export default function AccountPausedScreen() {
     try {
       await refreshSubscription();
     } catch (error) {
-      Alert.alert("Could not refresh", error.message);
+      Alert.alert(t("Could not refresh"), error.message);
     } finally {
       setRefreshing(false);
     }
@@ -46,28 +48,28 @@ export default function AccountPausedScreen() {
           <View style={styles.pauseIcon}>
             <Ionicons name="pause-circle-outline" size={42} color="#B45309" />
           </View>
-          <Text style={styles.title}>Account temporarily paused</Text>
+          <Text style={styles.title}>{t("Account temporarily paused")}</Text>
           <Text style={styles.message}>
-            {user?.subscription?.accountPauseReason || "Your administrator has temporarily paused access to this account."}
+            {user?.subscription?.accountPauseReason || t("Your administrator has temporarily paused access to this account.")}
           </Text>
           <View style={styles.storeCard}>
             <Ionicons name="storefront-outline" size={20} color="#0A46E4" />
             <View style={styles.flex}>
-              <Text style={styles.storeName}>{user?.storeName || "Your store"}</Text>
+              <Text style={styles.storeName}>{user?.storeName || t("Your store")}</Text>
               <Text style={styles.email}>{user?.email}</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.primary} onPress={contactSupport}>
             <Ionicons name="logo-whatsapp" size={20} color="#FFFFFF" />
-            <Text style={styles.primaryText}>Contact support on WhatsApp</Text>
+            <Text style={styles.primaryText}>{t("Contact support on WhatsApp")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondary} onPress={refresh} disabled={refreshing}>
             {refreshing
               ? <ActivityIndicator color="#0A46E4" />
-              : <><Ionicons name="refresh-outline" size={19} color="#0A46E4" /><Text style={styles.secondaryText}>Check account status</Text></>}
+              : <><Ionicons name="refresh-outline" size={19} color="#0A46E4" /><Text style={styles.secondaryText}>{t("Check account status")}</Text></>}
           </TouchableOpacity>
           <TouchableOpacity onPress={logout}>
-            <Text style={styles.logout}>Log out</Text>
+            <Text style={styles.logout}>{t("Log out")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

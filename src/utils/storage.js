@@ -41,5 +41,10 @@ export const saveSettings = (settings) => saveJson(STORAGE_KEYS.settings, settin
 export const loadSettings = () => loadJson(STORAGE_KEYS.settings, null);
 
 export async function clearBusinessData() {
-  await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+  await AsyncStorage.multiRemove([
+    STORAGE_KEYS.products,
+    STORAGE_KEYS.cart,
+    STORAGE_KEYS.orders,
+    STORAGE_KEYS.customers,
+  ]);
 }

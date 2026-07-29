@@ -2,8 +2,10 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useCartStore } from "../../store/cartStore";
+import { useTranslation } from "../../i18n";
 
 export default function FloatingCartBar({ onPress }) {
+  const { t } = useTranslation();
   const cart = useCartStore((state) => state.cart);
 
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -16,12 +18,12 @@ export default function FloatingCartBar({ onPress }) {
       <View style={styles.left}>
         <Ionicons name="cart" size={22} color="#FFFFFF" />
         <View>
-          <Text style={styles.items}>{itemCount} Items</Text>
+          <Text style={styles.items}>{itemCount} {t("Items")}</Text>
           <Text style={styles.total}>₹{total}</Text>
         </View>
       </View>
 
-      <Text style={styles.action}>View Cart</Text>
+      <Text style={styles.action}>{t("View Cart")}</Text>
     </TouchableOpacity>
   );
 }

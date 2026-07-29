@@ -15,7 +15,7 @@ export async function generateAndShareReceiptPDF(data) {
   const html = buildReceiptHtml(data);
   if (Platform.OS === "web") {
     const win = window.open("", "_blank");
-    if (!win) throw new Error("Allow pop-ups to print the receipt.");
+    if (!win) throw new Error(data.labels?.allowPopups || "Allow pop-ups to print the receipt.");
     win.document.write(html);
     win.document.close();
     win.print();
@@ -26,7 +26,7 @@ export async function generateAndShareReceiptPDF(data) {
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(result.uri, {
       mimeType: "application/pdf",
-      dialogTitle: `Receipt ${data.invoiceNo}`,
+      dialogTitle: `${data.labels?.receipt || "Receipt"} ${data.invoiceNo}`,
     });
   } else {
     await Print.printAsync({ uri: result.uri });
@@ -46,7 +46,9 @@ export function buildReceiptHtml({
   date,
   customer,
   storeName = "My Store",
+  labels = {},
 }) {
+  const label = (key, fallback) => labels[key] || fallback;
   const rows = cart.map((item) => `
     <tr>
       <td>
@@ -61,7 +63,7 @@ export function buildReceiptHtml({
     <head>
       <meta charset="utf-8">
       <style>
-        body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}
+        body{font-family:system-ui,sans-serif;padding:24px;color:#0f172a}
         h1,p{text-align:center}
         table{width:100%;border-collapse:collapse}
         td{padding:10px 0;border-bottom:1px solid #e2e8f0}
@@ -71,22 +73,22 @@ export function buildReceiptHtml({
     </head>
     <body>
       <h1>${escapeHtml(storeName)}</h1>
-      <p>Scan • Bill • Print</p>
+      <p>${escapeHtml(label("tagline", "Scan • Bill • Print"))}</p>
       <hr>
       <div class="meta">
-        <p><b>Invoice:</b> ${escapeHtml(invoiceNo)}</p>
-        <p><b>Date:</b> ${escapeHtml(date)}</p>
-        <p><b>Customer:</b> ${escapeHtml(customer?.name || "Walk-in Customer")}</p>
-        <p><b>Payment:</b> ${escapeHtml(payment)}</p>
+        <p><b>${escapeHtml(label("invoice", "Invoice"))}:</b> ${escapeHtml(invoiceNo)}</p>
+        <p><b>${escapeHtml(label("date", "Date"))}:</b> ${escapeHtml(date)}</p>
+        <p><b>${escapeHtml(label("customer", "Customer"))}:</b> ${escapeHtml(customer?.name || label("walkInCustomer", "Walk-in Customer"))}</p>
+        <p><b>${escapeHtml(label("payment", "Payment"))}:</b> ${escapeHtml(payment)}</p>
       </div>
       <table>${rows}</table>
       <div class="summary">
-        <p>Subtotal <strong>${formatCurrency(subtotal)}</strong></p>
+        <p>${escapeHtml(label("subtotal", "Subtotal"))} <strong>${formatCurrency(subtotal)}</strong></p>
         <p>GST ${Number(gstRate)}% <strong>${formatCurrency(gst)}</strong></p>
-        <p>Discount <strong>${formatCurrency(discount)}</strong></p>
-        <h2 style="text-align:right">TOTAL: ${formatCurrency(total)}</h2>
+        <p>${escapeHtml(label("discount", "Discount"))} <strong>${formatCurrency(discount)}</strong></p>
+        <h2 style="text-align:right">${escapeHtml(label("total", "TOTAL"))}: ${formatCurrency(total)}</h2>
       </div>
-      <p>Thank you ❤️</p>
+      <p>${escapeHtml(label("thankYou", "Thank you"))} ❤️</p>
     </body>
   </html>`;
 }

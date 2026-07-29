@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import UserAvatar from "../avatar/UserAvatar";
+import { useTranslation } from "../../i18n";
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -12,12 +13,13 @@ function getGreeting() {
 }
 
 export default function AppHeader({ name = "User", onNotifications }) {
+  const { language, t } = useTranslation();
   return (
     <View style={styles.header}>
       <View>
-        <Text style={styles.greeting}>{getGreeting()} 👋</Text>
+        <Text style={styles.greeting}>{t(getGreeting())} 👋</Text>
         <Text style={styles.name}>{name}</Text>
-        <Text style={styles.date}>{dayjs().format("dddd, DD MMMM")}</Text>
+        <Text style={styles.date}>{dayjs().locale(language).format("dddd, DD MMMM")}</Text>
       </View>
 
       <View style={styles.right}>

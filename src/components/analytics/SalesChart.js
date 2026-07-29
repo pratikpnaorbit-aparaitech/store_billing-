@@ -1,13 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { formatCurrency } from "../../utils/billing";
+import { useTranslation } from "../../i18n";
 
 export default function SalesChart({ data }) {
+  const { t } = useTranslation();
   const max = Math.max(...data.map((i) => i.amount), 1);
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Weekly Sales Trend</Text>
+      <Text style={styles.title}>{t("Weekly Sales Trend")}</Text>
 
       {data.map((item) => {
         const width = `${Math.max((item.amount / max) * 100, 8)}%`;

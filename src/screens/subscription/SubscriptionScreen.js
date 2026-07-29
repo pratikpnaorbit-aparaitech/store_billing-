@@ -10,12 +10,13 @@ import {
   verifySubscriptionCheckout,
 } from "../../services/subscriptionApi";
 import { useAuthStore } from "../../store/authStore";
+import { useTranslation } from "../../i18n";
 
 WebBrowser.maybeCompleteAuthSession();
 
-function formatDate(value) {
+function formatDate(value, language = "en") {
   if (!value) return "";
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat({ en: "en-IN", hi: "hi-IN", mr: "mr-IN" }[language] || "en-IN", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -25,6 +26,7 @@ function formatDate(value) {
 }
 
 export default function SubscriptionScreen({ navigation, route }) {
+  const { language, t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const refreshSubscription = useAuthStore((state) => state.refreshSubscription);
   const logout = useAuthStore((state) => state.logout);
@@ -121,7 +123,7 @@ export default function SubscriptionScreen({ navigation, route }) {
       await refreshSubscription();
       if (navigation?.canGoBack?.()) navigation.goBack();
     } catch (error) {
-      setMessage(error.description || error.message || "Could not open Razorpay checkout.");
+      setMessage(error.description || error.message || t("Could not open Razorpay checkout."));
     } finally {
       setBusy(false);
     }
@@ -130,11 +132,11 @@ export default function SubscriptionScreen({ navigation, route }) {
   const subscribe = () => {
     if (migrationMode && priceChange?.required && !subscription.migrationPending) {
       Alert.alert(
-        "Switch autopay plan?",
-        "Your current autopay will be scheduled to stop at the end of its paid cycle. You will then authorise the selected latest plan in Razorpay.",
+        t("Switch autopay plan?"),
+        t("Your current autopay will be scheduled to stop at the end of its paid cycle. You will then authorise the selected latest plan in Razorpay."),
         [
-          { text: "Not now", style: "cancel" },
-          { text: "Continue", onPress: performCheckout },
+          { text: t("Not now"), style: "cancel" },
+          { text: t("Continue"), onPress: performCheckout },
         ],
       );
       return;
@@ -161,12 +163,12 @@ export default function SubscriptionScreen({ navigation, route }) {
             </View>
             <Text style={styles.title}>
               {migrationMode
-                ? "Update your autopay"
+                ? t("Update your autopay")
                 : manageMode && subscription.accessAllowed
-                  ? "Your subscription"
+                  ? t("Your subscription")
                   : paymentIssue
-                    ? "Payment needs attention"
-                    : "Your free trial has ended"}
+                    ? t("Payment needs attention")
+                    : t("Your free trial has ended")}
             </Text>
             <Text style={styles.subtitle}>
               {migrationMode
@@ -175,14 +177,14 @@ export default function SubscriptionScreen({ navigation, route }) {
                   ? `Your ${subscription.plan?.durationMonths || 1}-month plan is active. No payment action is required.`
                   : paymentIssue
                 ? "Razorpay could not complete the latest charge. Refresh after payment succeeds, or continue to Razorpay."
-                : `Your 7-day trial ended on ${formatDate(subscription.trialEndsAt)}. Choose a plan to continue using the app.`}
+                : `Your 7-day trial ended on ${formatDate(subscription.trialEndsAt, language)}. Choose a plan to continue using the app.`}
             </Text>
 
-            <Text style={styles.planHeading}>{manageMode && !migrationMode ? "Current plan prices" : "Choose your billing plan"}</Text>
+            <Text style={styles.planHeading}>{manageMode && !migrationMode ? t("Current plan prices") : t("Choose your billing plan")}</Text>
             {plansLoading ? (
               <View style={styles.plansLoading}>
                 <ActivityIndicator color="#0A46E4" />
-                <Text style={styles.plansLoadingText}>Loading current prices…</Text>
+                <Text style={styles.plansLoadingText}>{t("Loading current prices…")}</Text>
               </View>
             ) : (
               <View style={styles.plans}>
@@ -199,15 +201,15 @@ export default function SubscriptionScreen({ navigation, route }) {
                         {selected ? <View style={styles.radioDot} /> : null}
                       </View>
                       <View style={styles.planCopy}>
-                        <Text style={styles.planDuration}>{plan.durationMonths} month{plan.durationMonths === 1 ? "" : "s"}</Text>
-                        <Text style={styles.planRenewal}>Renews every {plan.durationMonths === 1 ? "month" : `${plan.durationMonths} months`}</Text>
+                        <Text style={styles.planDuration}>{plan.durationMonths} {t(plan.durationMonths === 1 ? "month" : "months")}</Text>
+                        <Text style={styles.planRenewal}>{t("Renews every")} {plan.durationMonths} {t(plan.durationMonths === 1 ? "month" : "months")}</Text>
                       </View>
                       <Text style={styles.planPrice}>₹{Number(plan.amount).toLocaleString("en-IN")}</Text>
                     </TouchableOpacity>
                   );
                 })}
                 {!plans.length ? (
-                  <Text style={styles.noPlans}>No plan is available right now. Try again shortly.</Text>
+                  <Text style={styles.noPlans}>{t("No plan is available right now. Try again shortly.")}</Text>
                 ) : null}
               </View>
             )}
@@ -220,7 +222,7 @@ export default function SubscriptionScreen({ navigation, route }) {
             ].map((feature) => (
               <View key={feature} style={styles.feature}>
                 <Ionicons name="checkmark-circle" size={20} color="#16A34A" />
-                <Text style={styles.featureText}>{feature}</Text>
+                <Text style={styles.featureText}>{t(feature)}</Text>
               </View>
             ))}
 
@@ -233,23 +235,23 @@ export default function SubscriptionScreen({ navigation, route }) {
               >
                 {busy
                   ? <ActivityIndicator color="#FFF" />
-                  : <><Ionicons name="card-outline" size={20} color="#FFF" /><Text style={styles.primaryText}>{migrationMode ? "Stop old autopay & authorise new plan" : "Subscribe securely with Razorpay"}</Text></>}
+                  : <><Ionicons name="card-outline" size={20} color="#FFF" /><Text style={styles.primaryText}>{migrationMode ? t("Stop old autopay & authorise new plan") : t("Subscribe securely with Razorpay")}</Text></>}
               </TouchableOpacity>
             ) : (
               <View style={styles.currentPlanNote}>
                 <Ionicons name="checkmark-circle" size={21} color="#15803D" />
-                <Text style={styles.currentPlanText}>Your authorised autopay price stays unchanged until an admin publishes a new plan price.</Text>
+                <Text style={styles.currentPlanText}>{t("Your authorised autopay price stays unchanged until an admin publishes a new plan price.")}</Text>
               </View>
             )}
             <TouchableOpacity style={styles.secondary} onPress={refresh} disabled={busy || refreshing}>
               {refreshing
                 ? <ActivityIndicator color="#0A46E4" />
-                : <><Ionicons name="refresh-outline" size={20} color="#0A46E4" /><Text style={styles.secondaryText}>Refresh payment status</Text></>}
+                : <><Ionicons name="refresh-outline" size={20} color="#0A46E4" /><Text style={styles.secondaryText}>{t("Refresh payment status")}</Text></>}
             </TouchableOpacity>
           </View>
           {!navigation?.canGoBack?.() ? (
             <TouchableOpacity onPress={logout} disabled={busy || refreshing}>
-              <Text style={styles.logout}>Log out of {user?.email}</Text>
+              <Text style={styles.logout}>{t("Log out")} · {user?.email}</Text>
             </TouchableOpacity>
           ) : null}
         </ScrollView>

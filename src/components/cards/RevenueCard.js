@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "../../i18n";
 
 export default function RevenueCard({
   revenue = "₹15,420",
@@ -9,11 +10,12 @@ export default function RevenueCard({
   orders = "28",
   customers = "31",
 }) {
+  const { t } = useTranslation();
   return (
     <LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.card}>
       <View style={styles.topRow}>
         <View>
-          <Text style={styles.label}>Today’s Revenue</Text>
+          <Text style={styles.label}>{t("Today’s Revenue")}</Text>
           <Text style={styles.amount}>{revenue}</Text>
         </View>
 
@@ -24,20 +26,20 @@ export default function RevenueCard({
 
       <View style={styles.growthBox}>
         <Ionicons name="arrow-up" size={14} color="#BBF7D0" />
-        <Text style={styles.growth}>{growth} from yesterday</Text>
+        <Text style={styles.growth}>{growth}</Text>
       </View>
 
       <View style={styles.footer}>
         <View>
           <Text style={styles.footerValue}>{orders}</Text>
-          <Text style={styles.footerLabel}>Orders</Text>
+          <Text style={styles.footerLabel}>{t("Orders")}</Text>
         </View>
 
         <View style={styles.divider} />
 
         <View>
           <Text style={styles.footerValue}>{customers}</Text>
-          <Text style={styles.footerLabel}>Customers</Text>
+          <Text style={styles.footerLabel}>{t("Customers")}</Text>
         </View>
       </View>
     </LinearGradient>

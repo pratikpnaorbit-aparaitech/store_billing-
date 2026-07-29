@@ -1,7 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
+import { useTranslation } from "../../i18n";
 
 export default function TopProductCard({ product }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.card}>
       <View style={styles.rankBox}>
@@ -10,7 +12,7 @@ export default function TopProductCard({ product }) {
 
       <View style={styles.info}>
         <Text style={styles.name}>{product.name}</Text>
-        <Text style={styles.sold}>{product.sold} units sold</Text>
+        <Text style={styles.sold}>{product.sold} {t("units sold")}</Text>
       </View>
     </View>
   );

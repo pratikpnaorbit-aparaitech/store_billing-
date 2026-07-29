@@ -12,6 +12,7 @@ const authRoutes = require("./src/routes/authRoutes");
 const uploadRoutes = require("./src/routes/uploadRoutes");
 const subscriptionRoutes = require("./src/routes/subscriptionRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const inventoryImportRoutes = require("./src/routes/inventoryImportRoutes");
 const subscriptionController = require("./src/controllers/subscriptionController");
 const mongoose = require("mongoose");
 const validateEnv = require("./src/config/validateEnv");
@@ -41,6 +42,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/uploads", uploadRoutes);
+app.use("/api/inventory-import", inventoryImportRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/admin", adminRoutes);
 

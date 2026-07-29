@@ -1,7 +1,12 @@
 import { create } from "zustand";
+import { getLocales } from "expo-localization";
 import { loadSettings, saveSettings } from "../utils/storage";
 
-const defaults = { gstRate: 5, currency: "INR" };
+const deviceLanguage = () => {
+  const code = getLocales()?.[0]?.languageCode;
+  return ["en", "hi", "mr"].includes(code) ? code : "en";
+};
+const defaults = { gstRate: 5, currency: "INR", language: deviceLanguage() };
 
 export const useSettingsStore = create((set) => ({
   settings: defaults,

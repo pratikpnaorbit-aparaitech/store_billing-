@@ -12,8 +12,10 @@ import { buildThermalReceipt } from "../../utils/printer/thermalReceipt";
 import { createInvoiceNo, formatCurrency } from "../../utils/billing";
 import { hasRemoteApi } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
+import { useTranslation } from "../../i18n";
 
 export default function ReceiptScreen({ navigation, route }) {
+  const { language, t } = useTranslation();
   const liveCart = useCartStore((state) => state.cart);
   const clearCart = useCartStore((state) => state.clearCart);
   const reduceStock = useProductStore((state) => state.reduceStock);
@@ -25,6 +27,23 @@ export default function ReceiptScreen({ navigation, route }) {
   const [busy, setBusy] = useState(false);
   const [liveInvoiceNo] = useState(() => createInvoiceNo());
   const [liveCreatedAt] = useState(() => new Date().toISOString());
+  const labels = {
+    tagline: t("Scan • Bill • Print"),
+    invoice: t("Invoice"),
+    date: t("Date"),
+    customer: t("Customer"),
+    payment: t("Payment"),
+    walkInCustomer: t("Walk-in Customer"),
+    subtotal: t("Subtotal"),
+    discount: t("Discount"),
+    total: t("TOTAL"),
+    thankYou: t("Thank you"),
+    item: t("ITEM"),
+    qty: t("QTY"),
+    rate: t("RATE"),
+    receipt: t("Receipt"),
+    allowPopups: t("Allow pop-ups to print the receipt."),
+  };
 
   const historyOrderId = route?.params?.orderId;
   const isHistory = Boolean(route?.params?.fromHistory && historyOrderId);
@@ -43,7 +62,7 @@ export default function ReceiptScreen({ navigation, route }) {
       storeName: historyOrder.storeName || user?.storeName || user?.name || "My Store",
       cart: historyCart,
       invoiceNo: historyOrder.invoiceNo,
-      date: historyOrder.date || dayjs(historyOrder.createdAt).format("DD MMM YYYY, hh:mm A"),
+      date: historyOrder.date || dayjs(historyOrder.createdAt).locale(language).format("DD MMM YYYY, hh:mm A"),
       payment: historyOrder.payment || "Cash",
       subtotal: Number(historyOrder.subtotal || 0),
       gstRate: Number(historyOrder.gstRate || 0),
@@ -56,7 +75,7 @@ export default function ReceiptScreen({ navigation, route }) {
       cart: liveCart,
       storeName: user?.storeName || user?.name || "My Store",
       invoiceNo: liveInvoiceNo,
-      date: dayjs(liveCreatedAt).format("DD MMM YYYY, hh:mm A"),
+      date: dayjs(liveCreatedAt).locale(language).format("DD MMM YYYY, hh:mm A"),
       payment: "Cash",
       subtotal: 0,
       gstRate: 5,
@@ -69,12 +88,12 @@ export default function ReceiptScreen({ navigation, route }) {
 
   const sharePDF = async () => {
     try {
-      await generateAndShareReceiptPDF(data);
+      await generateAndShareReceiptPDF({ ...data, labels });
     } catch (error) {
-      Alert.alert("PDF failed", error.message);
+      Alert.alert(t("PDF failed"), error.message);
     }
   };
-  const previewThermalReceipt = () => Alert.alert("Thermal Receipt Preview", buildThermalReceipt(data));
+  const previewThermalReceipt = () => Alert.alert(t("Thermal Receipt Preview"), buildThermalReceipt({ ...data, labels }));
 
   const finishSale = async () => {
     if (isHistory || busy || !liveCart.length) return;
@@ -94,7 +113,7 @@ export default function ReceiptScreen({ navigation, route }) {
       navigation.reset({ index: 0, routes: [{ name: "Main" }] });
     } catch (error) {
       setBusy(false);
-      Alert.alert("Sale not completed", error.message);
+      Alert.alert(t("Sale not completed"), error.message);
     }
   };
 
@@ -105,12 +124,12 @@ export default function ReceiptScreen({ navigation, route }) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
           </TouchableOpacity>
-          <Text style={styles.title}>Bill Details</Text>
+          <Text style={styles.title}>{t("Bill Details")}</Text>
         </View>
         <View style={styles.missing}>
           <Ionicons name="receipt-outline" size={52} color="#94A3B8" />
-          <Text style={styles.missingTitle}>Bill not found</Text>
-          <Text style={styles.missingText}>Return to Bill History and open it again.</Text>
+          <Text style={styles.missingTitle}>{t("Bill not found")}</Text>
+          <Text style={styles.missingText}>{t("Return to Bill History and open it again.")}</Text>
         </View>
       </View>
     );
@@ -122,7 +141,7 @@ export default function ReceiptScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
-        <Text style={styles.title}>{isHistory ? "Bill Details" : "Receipt"}</Text>
+        <Text style={styles.title}>{isHistory ? t("Bill Details") : t("Receipt")}</Text>
       </View>
 
       <ScrollView
@@ -132,13 +151,13 @@ export default function ReceiptScreen({ navigation, route }) {
       >
         <View style={styles.receipt}>
           <Text style={styles.store}>{data.storeName}</Text>
-          <Text style={styles.sub}>Scan • Bill • Print</Text>
+          <Text style={styles.sub}>{t("Scan • Bill • Print")}</Text>
           <View style={styles.line} />
 
-          <Info label="Invoice" value={data.invoiceNo} />
-          <Info label="Date" value={data.date} />
-          <Info label="Customer" value={data.customer?.name || "Walk-in Customer"} />
-          <Info label="Payment" value={data.payment} />
+          <Info label={t("Invoice")} value={data.invoiceNo} />
+          <Info label={t("Date")} value={data.date} />
+          <Info label={t("Customer")} value={data.customer?.name || t("Walk-in Customer")} />
+          <Info label={t("Payment")} value={t(data.payment)} />
 
           <View style={styles.line} />
 
@@ -160,28 +179,28 @@ export default function ReceiptScreen({ navigation, route }) {
           ))}
 
           <View style={styles.line} />
-          <Info label="Subtotal" value={formatCurrency(data.subtotal)} />
+          <Info label={t("Subtotal")} value={formatCurrency(data.subtotal)} />
           <Info label={`GST ${data.gstRate}%`} value={formatCurrency(data.gst)} />
-          <Info label="Discount" value={formatCurrency(data.discount)} />
+          <Info label={t("Discount")} value={formatCurrency(data.discount)} />
 
           <View style={styles.total}>
-            <Text style={styles.totalLabel}>TOTAL</Text>
+            <Text style={styles.totalLabel}>{t("TOTAL")}</Text>
             <Text selectable style={styles.totalValue}>{formatCurrency(data.total)}</Text>
           </View>
-          <Text style={styles.thanks}>Thank you ❤️</Text>
+          <Text style={styles.thanks}>{t("Thank you")} ❤️</Text>
         </View>
 
         <TouchableOpacity style={styles.primary} onPress={sharePDF}>
           <Ionicons name="share-outline" size={20} color="#FFF" />
-          <Text style={styles.primaryText}>Share PDF Receipt</Text>
+          <Text style={styles.primaryText}>{t("Share PDF Receipt")}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondary} onPress={previewThermalReceipt}>
-          <Text style={styles.secondaryText}>Thermal Preview</Text>
+          <Text style={styles.secondaryText}>{t("Thermal Preview")}</Text>
         </TouchableOpacity>
 
         {!isHistory ? (
           <TouchableOpacity style={styles.complete} onPress={finishSale} disabled={busy}>
-            <Text style={styles.primaryText}>{busy ? "Saving Sale..." : "Complete Sale"}</Text>
+            <Text style={styles.primaryText}>{busy ? t("Saving Sale...") : t("Complete Sale")}</Text>
           </TouchableOpacity>
         ) : null}
       </ScrollView>

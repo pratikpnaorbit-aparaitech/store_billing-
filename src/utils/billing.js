@@ -49,7 +49,11 @@ export function getOrderAnalytics(orders = [], products = []) {
     ),
     0,
   );
-  const lowStock = products.filter((product) => Number(product.stock || 0) <= 10).length;
+  const lowStock = products.filter((product) => {
+    const stock = Number(product.stock || 0);
+    const isUntouchedCatalogueItem = product.catalogue && product.virtual !== false && stock === 0;
+    return stock <= 10 && !isUntouchedCatalogueItem;
+  }).length;
   return {
     totalSales,
     totalOrders: orders.length,
@@ -118,6 +122,10 @@ export function getDailySalesInsights(orders = [], dateKey = toLocalDateKey(new 
 
 export function addCartItem(cart = [], product) {
   const stock = Number(product.stock || 0);
+  const price = Number(product.price || 0);
+  if (!Number.isFinite(price) || price <= 0) {
+    return { cart, ok: false, message: "Set a selling price before adding this product to a bill." };
+  }
   const current = cart.find((item) => item.id === product.id)?.quantity || 0;
   if (stock <= current) {
     return { cart, ok: false, message: stock <= 0 ? "Product is out of stock." : "All available stock is already in the cart." };

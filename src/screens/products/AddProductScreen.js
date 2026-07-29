@@ -17,6 +17,7 @@ import { useProductStore } from "../../store/productStore";
 import { hasRemoteApi } from "../../services/api";
 import { uploadProductImage } from "../../services/uploadApi";
 import { createManualBarcode, isManualBarcode } from "../../utils/products";
+import { useTranslation } from "../../i18n";
 
 const MANUAL_ITEM_OPTIONS = [
   { name: "Rice", category: "Grains" },
@@ -51,6 +52,7 @@ const UNIT_OPTIONS = ["250 g", "500 g", "1 kg", "2 kg", "5 kg", "1 pc", "1 litre
 const STOCK_OPTIONS = ["10", "25", "50", "100"];
 
 export default function AddProductScreen({ navigation, route }) {
+  const { t } = useTranslation();
   const editing = route?.params?.product;
   const draft = route?.params?.draft;
   const manualMode = Boolean(
@@ -83,11 +85,11 @@ export default function AddProductScreen({ navigation, route }) {
     const price = Number(form.price);
     const stock = Number(form.stock || 0);
     if (!form.name.trim() || !Number.isFinite(price) || price <= 0) {
-      Alert.alert("Invalid details", "Product name and a selling price greater than zero are required.");
+      Alert.alert(t("Invalid details"), t("Product name and a selling price greater than zero are required."));
       return;
     }
     if (!Number.isInteger(stock) || stock < 0) {
-      Alert.alert("Invalid stock", "Stock must be a whole number of zero or more.");
+      Alert.alert(t("Invalid stock"), t("Stock must be a whole number of zero or more."));
       return;
     }
 
@@ -99,7 +101,7 @@ export default function AddProductScreen({ navigation, route }) {
       }
     } catch (error) {
       setSaving(false);
-      Alert.alert("Photo upload failed", `${error.message}. Check image storage configuration and try again.`);
+      Alert.alert(t("Photo upload failed"), `${error.message}. ${t("Check image storage configuration and try again.")}`);
       return;
     }
     const product = {
@@ -118,7 +120,7 @@ export default function AddProductScreen({ navigation, route }) {
       navigation.goBack();
     } catch (error) {
       setSaving(false);
-      Alert.alert("Could not save product", error.message);
+      Alert.alert(t("Could not save product"), error.message);
     }
   };
 
@@ -126,7 +128,7 @@ export default function AddProductScreen({ navigation, route }) {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Please allow gallery access to select product image.");
+      Alert.alert(t("Permission needed"), t("Please allow gallery access to select product image."));
       return;
     }
 
@@ -163,8 +165,8 @@ export default function AddProductScreen({ navigation, route }) {
         </TouchableOpacity>
         <Text style={styles.title}>
           {editing
-            ? manualMode ? "Edit No-Barcode Item" : "Edit Product"
-            : manualMode ? "Add No-Barcode Item" : "Add Product"}
+            ? manualMode ? t("Edit No-Barcode Item") : t("Edit Product")
+            : manualMode ? t("Add No-Barcode Item") : t("Add Product")}
         </Text>
       </View>
 
@@ -174,9 +176,9 @@ export default function AddProductScreen({ navigation, route }) {
             <Ionicons name="basket-outline" size={24} color="#0A46E4" />
           </View>
           <View style={styles.manualIntroCopy}>
-            <Text style={styles.manualIntroTitle}>Set up once, then tap to bill</Text>
+            <Text style={styles.manualIntroTitle}>{t("Set up once, then tap to bill")}</Text>
             <Text style={styles.manualIntroText}>
-              This item will appear under “Add manually” and does not need a barcode.
+              {t("This item will appear under “Add manually” and does not need a barcode.")}
             </Text>
           </View>
         </View>
@@ -188,15 +190,15 @@ export default function AddProductScreen({ navigation, route }) {
             ) : (
               <>
                 <Ionicons name="camera-outline" size={34} color="#0A46E4" />
-                <Text style={styles.imageTitle}>Add Product Photo</Text>
-                <Text style={styles.imageSub}>Tap to choose from gallery</Text>
+                <Text style={styles.imageTitle}>{t("Add Product Photo")}</Text>
+                <Text style={styles.imageSub}>{t("Tap to choose from gallery")}</Text>
               </>
             )}
           </TouchableOpacity>
 
           {image ? (
             <TouchableOpacity onPress={pickImage}>
-              <Text style={styles.changeImage}>Change Image</Text>
+              <Text style={styles.changeImage}>{t("Change Image")}</Text>
             </TouchableOpacity>
           ) : null}
         </>
@@ -205,8 +207,8 @@ export default function AddProductScreen({ navigation, route }) {
       {manualMode ? (
         <View style={styles.quickSection}>
           <View style={styles.optionHeading}>
-            <Text style={styles.quickTitle}>Common loose items</Text>
-            <Text style={styles.swipeHint}>Swipe & tap</Text>
+            <Text style={styles.quickTitle}>{t("Common loose items")}</Text>
+            <Text style={styles.swipeHint}>{t("Swipe & tap")}</Text>
           </View>
           <ScrollView
             horizontal
@@ -217,7 +219,7 @@ export default function AddProductScreen({ navigation, route }) {
             {MANUAL_ITEM_OPTIONS.map((item) => (
               <QuickOption
                 key={item.name}
-                label={item.name}
+                label={t(item.name)}
                 active={form.name === item.name}
                 onPress={() => setForm((current) => ({
                   ...current,
@@ -240,9 +242,9 @@ export default function AddProductScreen({ navigation, route }) {
       ].map(([label, key]) => (
         <View key={key} style={styles.field}>
           <View style={styles.optionHeading}>
-            <Text style={styles.label}>{label}</Text>
+            <Text style={styles.label}>{t(label)}</Text>
             {["category", "stock", "unit"].includes(key) ? (
-              <Text style={styles.swipeHint}>Swipe & tap</Text>
+              <Text style={styles.swipeHint}>{t("Swipe & tap")}</Text>
             ) : null}
           </View>
           {key === "category" ? (
@@ -255,7 +257,7 @@ export default function AddProductScreen({ navigation, route }) {
               {categoryOptions.map((item) => (
                 <QuickOption
                   key={item}
-                  label={item}
+                  label={t(item)}
                   active={form.category === item}
                   onPress={() => updateField("category", item)}
                 />
@@ -266,7 +268,7 @@ export default function AddProductScreen({ navigation, route }) {
               <TextInput
                 value={form[key]}
                 onChangeText={(text) => updateField(key, text)}
-                placeholder={label}
+                placeholder={t(label)}
                 placeholderTextColor="#94A3B8"
                 style={styles.input}
                 keyboardType={key === "price" || key === "stock" ? "numeric" : "default"}
@@ -295,7 +297,7 @@ export default function AddProductScreen({ navigation, route }) {
               {STOCK_OPTIONS.map((item) => (
                 <QuickOption
                   key={item}
-                  label={item}
+                  label={t(item)}
                   active={form.stock === item}
                   onPress={() => updateField("stock", item)}
                 />
@@ -312,7 +314,7 @@ export default function AddProductScreen({ navigation, route }) {
               {UNIT_OPTIONS.map((item) => (
                 <QuickOption
                   key={item}
-                  label={item}
+                  label={t(item)}
                   active={form.unit === item}
                   onPress={() => updateField("unit", item)}
                 />
@@ -323,7 +325,7 @@ export default function AddProductScreen({ navigation, route }) {
       ))}
 
       <TouchableOpacity activeOpacity={0.85} style={styles.button} onPress={saveProduct} disabled={saving}>
-        <Text style={styles.buttonText}>{saving ? "Saving..." : editing ? "Update Product" : "Save Product"}</Text>
+        <Text style={styles.buttonText}>{saving ? t("Saving...") : editing ? t("Update Product") : t("Save Product")}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

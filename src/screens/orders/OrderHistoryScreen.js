@@ -4,8 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import dayjs from "dayjs";
 import { useOrderStore } from "../../store/orderStore";
 import { formatCurrency } from "../../utils/billing";
+import { useTranslation } from "../../i18n";
 
 export default function OrderHistoryScreen({ navigation }) {
+  const { language, t } = useTranslation();
   const orders = useOrderStore((state) => state.orders);
 
   const openOrder = (order) => {
@@ -17,8 +19,8 @@ export default function OrderHistoryScreen({ navigation }) {
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Orders</Text>
-      <Text style={styles.subtitle}>Recent invoices and payments</Text>
+      <Text style={styles.title}>{t("Orders")}</Text>
+      <Text style={styles.subtitle}>{t("Recent invoices and payments")}</Text>
 
       <FlatList
         data={orders}
@@ -28,8 +30,8 @@ export default function OrderHistoryScreen({ navigation }) {
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Ionicons name="receipt-outline" size={48} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>No orders yet</Text>
-            <Text style={styles.emptyText}>Generated bills will appear here</Text>
+            <Text style={styles.emptyTitle}>{t("No orders yet")}</Text>
+            <Text style={styles.emptyText}>{t("Generated bills will appear here")}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -50,7 +52,7 @@ export default function OrderHistoryScreen({ navigation }) {
                 <View>
                   <Text style={styles.invoice}>{item.invoiceNo}</Text>
                   <Text style={styles.date}>
-                    {dayjs(item.createdAt).format("DD MMM YYYY, hh:mm A")}
+                    {dayjs(item.createdAt).locale(language).format("DD MMM YYYY, hh:mm A")}
                   </Text>
                 </View>
 
@@ -73,10 +75,10 @@ export default function OrderHistoryScreen({ navigation }) {
                     size={15}
                     color="#0A46E4"
                   />
-                  <Text style={styles.payment}>{item.payment}</Text>
+                  <Text style={styles.payment}>{t(item.payment)}</Text>
                 </View>
 
-                <Text style={styles.items}>{itemCount} items</Text>
+                <Text style={styles.items}>{itemCount} {t("items")}</Text>
               </View>
             </TouchableOpacity>
           );

@@ -17,6 +17,7 @@ import { useCartStore } from "../../store/cartStore";
 import { useProductStore } from "../../store/productStore";
 import { formatCurrency } from "../../utils/billing";
 import { isManualBarcode } from "../../utils/products";
+import { useTranslation } from "../../i18n";
 
 export default function ManualProductPicker({
   visible,
@@ -25,6 +26,7 @@ export default function ManualProductPicker({
   onGoToBilling,
   billingButtonLabel = "View Bill",
 }) {
+  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [feedback, setFeedback] = useState("");
@@ -80,7 +82,7 @@ export default function ManualProductPicker({
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       return;
     }
-    setFeedback(`${product.name} added to the current bill`);
+    setFeedback(`${product.name} ${t("added to the current bill")}`);
     Haptics.selectionAsync().catch(() => {});
   };
 
@@ -105,7 +107,7 @@ export default function ManualProductPicker({
         <View style={styles.productInfo}>
           <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.productMeta}>
-            {item.unit || "1 pc"} · {outOfStock ? "Out of stock" : `Stock ${item.stock}`}
+            {item.unit || "1 pc"} · {outOfStock ? t("Out of stock") : `${t("Stock")} ${item.stock}`}
           </Text>
         </View>
         <View style={styles.productRight}>
@@ -136,8 +138,8 @@ export default function ManualProductPicker({
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.title}>Add without barcode</Text>
-              <Text style={styles.subtitle}>Tap any product to add it instantly</Text>
+              <Text style={styles.title}>{t("Add without barcode")}</Text>
+              <Text style={styles.subtitle}>{t("Tap any product to add it instantly")}</Text>
             </View>
             <TouchableOpacity onPress={closePicker} style={styles.closeButton}>
               <Ionicons name="close" size={22} color="#0F172A" />
@@ -149,7 +151,7 @@ export default function ManualProductPicker({
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search product (optional)"
+              placeholder={t("Search product (optional)")}
               placeholderTextColor="#94A3B8"
               style={styles.searchInput}
               returnKeyType="search"
@@ -175,7 +177,7 @@ export default function ManualProductPicker({
                   onPress={() => setCategory(item)}
                   style={[styles.category, active && styles.categoryActive]}
                 >
-                  <Text style={[styles.categoryText, active && styles.categoryTextActive]}>{item}</Text>
+                  <Text style={[styles.categoryText, active && styles.categoryTextActive]}>{t(item)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -199,8 +201,8 @@ export default function ManualProductPicker({
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Ionicons name="basket-outline" size={38} color="#94A3B8" />
-                <Text style={styles.emptyTitle}>No matching products</Text>
-                <Text style={styles.emptyText}>Create a no-barcode item once, then reuse it in every bill.</Text>
+                <Text style={styles.emptyTitle}>{t("No matching products")}</Text>
+                <Text style={styles.emptyText}>{t("Create a no-barcode item once, then reuse it in every bill.")}</Text>
               </View>
             }
           />
@@ -208,7 +210,7 @@ export default function ManualProductPicker({
           <View style={styles.footer}>
             <TouchableOpacity style={styles.createButton} onPress={createProduct}>
               <Ionicons name="add-circle-outline" size={20} color="#0A46E4" />
-              <Text style={styles.createButtonText}>New Item</Text>
+              <Text style={styles.createButtonText}>{t("New Item")}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.billButton, !cartCount && styles.billButtonDisabled]}

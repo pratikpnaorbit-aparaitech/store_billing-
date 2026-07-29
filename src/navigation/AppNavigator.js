@@ -13,6 +13,7 @@ import ScannerScreen from "../screens/scanner/ScannerScreen";
 import ReportsScreen from "../screens/reports/ReportsScreen";
 import SalesInsightsScreen from "../screens/reports/SalesInsightsScreen";
 import SubscriptionScreen from "../screens/subscription/SubscriptionScreen";
+import StockImportScreen from "../screens/products/StockImportScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -31,6 +32,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Reports" component={ReportsScreen} />
       <Stack.Screen name="SalesInsights" component={SalesInsightsScreen} />
       <Stack.Screen name="ManageSubscription" component={SubscriptionScreen} />
+      <Stack.Screen name="StockImport" component={StockImportScreen} />
     </Stack.Navigator>
   );
 }

@@ -5,6 +5,7 @@ import dayjs from "dayjs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useOrderStore } from "../../store/orderStore";
 import { formatCurrency, getDailySalesInsights, toLocalDateKey } from "../../utils/billing";
+import { useTranslation } from "../../i18n";
 
 function Metric({ icon, label, value, tone }) {
   return (
@@ -19,6 +20,7 @@ function Metric({ icon, label, value, tone }) {
 }
 
 export default function SalesInsightsScreen({ navigation }) {
+  const { language, t } = useTranslation();
   const orders = useOrderStore((state) => state.orders);
   const insets = useSafeAreaInsets();
   const dateKeys = useMemo(() => {
@@ -41,13 +43,13 @@ export default function SalesInsightsScreen({ navigation }) {
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.eyebrow}>BUSINESS ANALYTICS</Text>
-          <Text style={styles.title}>Daily Sales</Text>
+          <Text style={styles.eyebrow}>{t("BUSINESS ANALYTICS")}</Text>
+          <Text style={styles.title}>{t("Daily Sales")}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionLabel}>Choose a sales date</Text>
+        <Text style={styles.sectionLabel}>{t("Choose a sales date")}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -62,10 +64,10 @@ export default function SalesInsightsScreen({ navigation }) {
                 onPress={() => setSelectedDate(key)}
               >
                 <Text style={[styles.dateDay, active && styles.dateTextActive]}>
-                  {dayjs(key).format("DD")}
+                  {dayjs(key).locale(language).format("DD")}
                 </Text>
                 <Text style={[styles.dateMonth, active && styles.dateTextActive]}>
-                  {dayjs(key).format("MMM")}
+                  {dayjs(key).locale(language).format("MMM")}
                 </Text>
               </TouchableOpacity>
             );
@@ -74,9 +76,9 @@ export default function SalesInsightsScreen({ navigation }) {
 
         <View style={styles.hero}>
           <View style={styles.heroCopy}>
-            <Text style={styles.heroLabel}>{dayjs(selectedDate).format("dddd, DD MMMM YYYY")}</Text>
+            <Text style={styles.heroLabel}>{dayjs(selectedDate).locale(language).format("dddd, DD MMMM YYYY")}</Text>
             <Text style={styles.heroValue}>{formatCurrency(insights.revenue)}</Text>
-            <Text style={styles.heroCaption}>Total sales collected</Text>
+            <Text style={styles.heroCaption}>{t("Total sales collected")}</Text>
           </View>
           <View style={styles.heroIcon}>
             <Ionicons name="trending-up" size={28} color="#FFFFFF" />
@@ -84,12 +86,12 @@ export default function SalesInsightsScreen({ navigation }) {
         </View>
 
         <View style={styles.metrics}>
-          <Metric icon="receipt-outline" label="Bills" value={String(insights.totalOrders)} tone="#0A46E4" />
-          <Metric icon="cube-outline" label="Items sold" value={String(insights.productsSold)} tone="#7C3AED" />
-          <Metric icon="calculator-outline" label="Avg. bill" value={formatCurrency(insights.averageBill)} tone="#059669" />
+          <Metric icon="receipt-outline" label={t("Bills")} value={String(insights.totalOrders)} tone="#0A46E4" />
+          <Metric icon="cube-outline" label={t("Items Sold")} value={String(insights.productsSold)} tone="#7C3AED" />
+          <Metric icon="calculator-outline" label={t("Average bill")} value={formatCurrency(insights.averageBill)} tone="#059669" />
         </View>
 
-        <Text style={styles.heading}>Top product</Text>
+        <Text style={styles.heading}>{t("Top product")}</Text>
         {insights.topProduct ? (
           <View style={styles.topProduct}>
             <View style={styles.trophy}>
@@ -104,14 +106,14 @@ export default function SalesInsightsScreen({ navigation }) {
         ) : (
           <View style={styles.empty}>
             <Ionicons name="bar-chart-outline" size={42} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>No sales on this date</Text>
-            <Text style={styles.emptyText}>Completed bills will appear here automatically.</Text>
+            <Text style={styles.emptyTitle}>{t("No sales on this date")}</Text>
+            <Text style={styles.emptyText}>{t("Completed bills will appear here automatically.")}</Text>
           </View>
         )}
 
         {insights.orders.length ? (
           <>
-            <Text style={styles.heading}>Bills on this date</Text>
+            <Text style={styles.heading}>{t("Bills on this date")}</Text>
             <View style={styles.orderList}>
               {insights.orders.map((order) => (
                 <TouchableOpacity
@@ -128,7 +130,7 @@ export default function SalesInsightsScreen({ navigation }) {
                   <View style={styles.flex}>
                     <Text style={styles.orderTitle}>{order.invoiceNo}</Text>
                     <Text style={styles.orderMeta}>
-                      {dayjs(order.createdAt || order.date).format("hh:mm A")} • {order.customer?.name || order.customerName || "Walk-in Customer"}
+                      {dayjs(order.createdAt || order.date).locale(language).format("hh:mm A")} • {order.customer?.name || order.customerName || t("Walk-in Customer")}
                     </Text>
                   </View>
                   <Text style={styles.orderAmount}>{formatCurrency(order.total)}</Text>

@@ -15,8 +15,10 @@ import { useCartStore } from "../../store/cartStore";
 import { useCustomerStore } from "../../store/customerStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { calculateBill, formatCurrency } from "../../utils/billing";
+import { useTranslation } from "../../i18n";
 
 export default function BillingScreen({ navigation }) {
+  const { t } = useTranslation();
   const [payment, setPayment] = useState("Cash");
   const [discount, setDiscount] = useState("");
   const [manualPickerVisible, setManualPickerVisible] = useState(false);
@@ -34,7 +36,7 @@ export default function BillingScreen({ navigation }) {
     if (!cart.length) return;
     const unavailable = cart.find((item) => item.quantity > Number(item.stock || 0));
     if (unavailable) {
-      Alert.alert("Stock changed", `${unavailable.name} has insufficient stock.`);
+      Alert.alert(t("Stock changed"), `${unavailable.name}: ${t("No more stock is available.")}`);
       return;
     }
     navigation.navigate("Receipt", { ...bill, payment, customer: selectedCustomer });
@@ -47,8 +49,8 @@ export default function BillingScreen({ navigation }) {
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Billing</Text>
-          <Text style={styles.headerSubtitle}>{cart.length} product lines</Text>
+          <Text style={styles.title}>{t("Billing")}</Text>
+          <Text style={styles.headerSubtitle}>{cart.length} {t("product lines")}</Text>
         </View>
       </View>
 
@@ -60,8 +62,8 @@ export default function BillingScreen({ navigation }) {
           >
             <Ionicons name="scan-outline" size={22} color="#FFFFFF" />
             <View>
-              <Text style={styles.scanActionTitle}>Scan barcode</Text>
-              <Text style={styles.scanActionText}>Use camera</Text>
+              <Text style={styles.scanActionTitle}>{t("Scan barcode")}</Text>
+              <Text style={styles.scanActionText}>{t("Use camera")}</Text>
             </View>
           </TouchableOpacity>
           <TouchableOpacity
@@ -70,8 +72,8 @@ export default function BillingScreen({ navigation }) {
           >
             <Ionicons name="basket-outline" size={22} color="#0A46E4" />
             <View>
-              <Text style={styles.manualActionTitle}>Add manually</Text>
-              <Text style={styles.manualActionText}>No barcode</Text>
+              <Text style={styles.manualActionTitle}>{t("Add manually")}</Text>
+              <Text style={styles.manualActionText}>{t("No barcode")}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -79,8 +81,8 @@ export default function BillingScreen({ navigation }) {
         {!cart.length ? (
           <View style={styles.empty}>
             <Ionicons name="cart-outline" size={48} color="#94A3B8" />
-            <Text style={styles.emptyTitle}>Cart is empty</Text>
-            <Text style={styles.muted}>Scan a barcode or tap “Add manually” for loose items.</Text>
+            <Text style={styles.emptyTitle}>{t("Cart is empty")}</Text>
+            <Text style={styles.muted}>{t("Scan a barcode or tap “Add manually” for loose items.")}</Text>
           </View>
         ) : (
           cart.map((item) => (
@@ -109,7 +111,7 @@ export default function BillingScreen({ navigation }) {
                     style={styles.qtyButton}
                     onPress={() => {
                       if (!increaseQty(item.id)) {
-                        Alert.alert("Stock limit", "No more stock is available.");
+                        Alert.alert(t("Stock limit"), t("No more stock is available."));
                       }
                     }}
                   >
@@ -126,7 +128,7 @@ export default function BillingScreen({ navigation }) {
 
         {cart.length ? (
           <>
-            <Text style={styles.section}>Customer</Text>
+            <Text style={styles.section}>{t("Customer")}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {customers.map((customer) => (
                 <TouchableOpacity
@@ -142,10 +144,10 @@ export default function BillingScreen({ navigation }) {
             </ScrollView>
 
             <View style={styles.summary}>
-              <Row label="Subtotal" value={formatCurrency(bill.subtotal)} />
+              <Row label={t("Subtotal")} value={formatCurrency(bill.subtotal)} />
               <Row label={`GST ${bill.gstRate}%`} value={formatCurrency(bill.gst)} />
               <View style={styles.discountRow}>
-                <Text style={styles.rowLabel}>Discount ₹</Text>
+                <Text style={styles.rowLabel}>{t("Discount")} ₹</Text>
                 <TextInput
                   value={discount}
                   onChangeText={setDiscount}
@@ -155,10 +157,10 @@ export default function BillingScreen({ navigation }) {
                 />
               </View>
               <View style={styles.line} />
-              <Row label="Grand Total" value={formatCurrency(bill.total)} bold />
+              <Row label={t("Grand Total")} value={formatCurrency(bill.total)} bold />
             </View>
 
-            <Text style={styles.section}>Payment Method</Text>
+            <Text style={styles.section}>{t("Payment Method")}</Text>
             <View style={styles.paymentRow}>
               {["Cash", "UPI", "Card"].map((item) => (
                 <TouchableOpacity
@@ -167,14 +169,14 @@ export default function BillingScreen({ navigation }) {
                   style={[styles.payment, payment === item && styles.paymentActive]}
                 >
                   <Text style={[styles.paymentText, payment === item && styles.paymentTextActive]}>
-                    {item}
+                    {t(item)}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             <TouchableOpacity style={styles.generate} onPress={goToReceipt}>
-              <Text style={styles.generateText}>Review & Generate Bill</Text>
+              <Text style={styles.generateText}>{t("Review & Generate Bill")}</Text>
             </TouchableOpacity>
           </>
         ) : null}
@@ -188,7 +190,7 @@ export default function BillingScreen({ navigation }) {
           navigation.navigate("AddProduct", { manual: true });
         }}
         onGoToBilling={() => setManualPickerVisible(false)}
-        billingButtonLabel="Continue Billing"
+        billingButtonLabel={t("Continue Billing")}
       />
     </View>
   );

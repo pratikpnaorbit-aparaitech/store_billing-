@@ -1,5 +1,8 @@
 import React, { useEffect } from "react";
 import { AppState } from "react-native";
+import dayjs from "dayjs";
+import "dayjs/locale/hi";
+import "dayjs/locale/mr";
 import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator from "./src/navigation/AppNavigator";
 import SubscriptionScreen from "./src/screens/subscription/SubscriptionScreen";
@@ -19,6 +22,7 @@ export default function App() {
   const hydrateAuth = useAuthStore((state) => state.hydrateAuth);
   const hydrateSettings = useSettingsStore((state) => state.hydrateSettings);
   const authReady = useAuthStore((state) => state.ready);
+  const language = useSettingsStore((state) => state.settings.language || "en");
   const user = useAuthStore((state) => state.user);
   const cloudMode = useAuthStore((state) => state.cloudMode);
   const refreshSubscription = useAuthStore((state) => state.refreshSubscription);
@@ -29,7 +33,12 @@ export default function App() {
 
   useEffect(() => {
     hydrateAuth();
-  }, [hydrateAuth]);
+    hydrateSettings();
+  }, [hydrateAuth, hydrateSettings]);
+
+  useEffect(() => {
+    dayjs.locale(language);
+  }, [language]);
 
   useEffect(() => {
     if (!authReady) return;
@@ -45,11 +54,10 @@ export default function App() {
       hydrateCart(),
       hydrateOrders(),
       hydrateCustomers(),
-      hydrateSettings(),
     ])
       .then(() => useCartStore.getState().reconcileCart(useProductStore.getState().products))
       .catch((error) => console.warn("App data hydration failed", error));
-  }, [authReady, hydrateCart, hydrateCustomers, hydrateOrders, hydrateProducts, hydrateSettings, resetCart, resetCustomers, resetOrders, resetProducts, user]);
+  }, [authReady, hydrateCart, hydrateCustomers, hydrateOrders, hydrateProducts, resetCart, resetCustomers, resetOrders, resetProducts, user]);
 
   useEffect(() => {
     if (!authReady || !cloudMode || !user?.id) return undefined;

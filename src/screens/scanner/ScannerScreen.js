@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ManualProductPicker from "../../components/products/ManualProductPicker";
 import { useProductStore } from "../../store/productStore";
 import { useCartStore } from "../../store/cartStore";
+import { useTranslation } from "../../i18n";
 
 const BARCODE_TYPES = [
   "ean13",
@@ -38,6 +39,7 @@ const BARCODE_TYPES = [
 ];
 
 export default function ScannerScreen({ navigation, route }) {
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
@@ -59,6 +61,7 @@ export default function ScannerScreen({ navigation, route }) {
   const scanFrameHeight = scanFrameWidth / 1.45;
 
   const products = useProductStore((state) => state.products);
+  const lookupBarcode = useProductStore((state) => state.lookupBarcode);
   const addToCart = useCartStore((state) => state.addToCart);
   const cartCount = useCartStore((state) => (
     state.cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
@@ -176,8 +179,14 @@ export default function ScannerScreen({ navigation, route }) {
   const openManualAfterScan = () => {
     const barcode = scanSuccess?.barcode;
     const productMissing = scanSuccess?.productMissing;
+    const productSetup = scanSuccess?.productSetup;
+    const product = scanSuccess?.product;
     clearTimeout(successTimer.current);
     setScanSuccess(null);
+    if (productSetup && product) {
+      navigation.navigate("AddProduct", { product });
+      return;
+    }
     if (productMissing && barcode) {
       navigation.navigate("AddProduct", { barcode });
       return;
@@ -219,7 +228,7 @@ export default function ScannerScreen({ navigation, route }) {
     navigation.navigate("Billing");
   };
 
-  const handleBarcodeScanned = ({ data }) => {
+  const handleBarcodeScanned = async ({ data }) => {
     if (scanned) return;
 
     setScanned(true);
@@ -227,7 +236,7 @@ export default function ScannerScreen({ navigation, route }) {
     if (route?.params?.mode === "fillBarcode") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       playSuccess({
-        title: "Barcode captured",
+        title: t("Barcode captured"),
         detail: String(data),
       }, () => {
         navigation.replace("AddProduct", {
@@ -239,29 +248,51 @@ export default function ScannerScreen({ navigation, route }) {
       return;
     }
 
-    const product = products.find((item) => String(item.barcode) === String(data));
+    let product = products.find((item) => String(item.barcode) === String(data));
+    if (!product) {
+      try {
+        product = await lookupBarcode(data);
+      } catch (error) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        Alert.alert(t("Lookup failed"), error.message, [
+          { text: t("Scan New"), onPress: () => setScanned(false) },
+        ]);
+        return;
+      }
+    }
 
     if (product) {
+      if (Number(product.stock || 0) <= 0 || Number(product.price || 0) <= 0) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        playSuccess({
+          title: t("Product found"),
+          detail: `${product.name}: ${t("Set its price and stock before billing.")}`,
+          eyebrow: t("SETUP REQUIRED"),
+          product,
+          productSetup: true,
+        });
+        return;
+      }
       const result = addToCart(product);
       if (!result.ok) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        Alert.alert("Cannot add product", result.message, [
-          { text: "Scan Again", onPress: () => setScanned(false) },
+        Alert.alert(t("Cannot add"), result.message, [
+          { text: t("Scan New"), onPress: () => setScanned(false) },
         ]);
         return;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       playSuccess({
-        title: "Scan successful",
-        detail: `${product.name} added to bill`,
-        eyebrow: "PRODUCT ADDED",
+        title: t("Scan successful"),
+        detail: `${product.name} ${t("added to bill")}`,
+        eyebrow: t("PRODUCT ADDED"),
       });
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       playSuccess({
-        title: "Barcode scanned",
-        detail: "This product is not saved yet. Add its details once to use it in future bills.",
-        eyebrow: "NEW BARCODE",
+        title: t("Barcode scanned"),
+        detail: t("This product is not saved yet. Add its details once to use it in future bills."),
+        eyebrow: t("NEW BARCODE"),
         barcode: String(data),
         productMissing: true,
       });
@@ -271,7 +302,7 @@ export default function ScannerScreen({ navigation, route }) {
   if (!permission) {
     return (
       <View style={styles.center}>
-        <Text style={styles.loadingText}>Loading camera...</Text>
+        <Text style={styles.loadingText}>{t("Loading camera...")}</Text>
       </View>
     );
   }
@@ -280,11 +311,11 @@ export default function ScannerScreen({ navigation, route }) {
     return (
       <View style={styles.permissionScreen}>
         <Ionicons name="camera-outline" size={58} color="#0A46E4" />
-        <Text style={styles.permissionTitle}>Camera Permission Required</Text>
-        <Text style={styles.permissionText}>Allow camera access to scan product barcodes.</Text>
+        <Text style={styles.permissionTitle}>{t("Camera Permission Required")}</Text>
+        <Text style={styles.permissionText}>{t("Allow camera access to scan product barcodes.")}</Text>
 
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
-          <Text style={styles.permissionButtonText}>Allow Camera</Text>
+          <Text style={styles.permissionButtonText}>{t("Allow Camera")}</Text>
         </TouchableOpacity>
 
         {route?.params?.mode !== "fillBarcode" ? (
@@ -293,7 +324,7 @@ export default function ScannerScreen({ navigation, route }) {
             onPress={openManualPicker}
           >
             <Ionicons name="basket-outline" size={20} color="#0A46E4" />
-            <Text style={styles.permissionManualText}>Add without barcode</Text>
+            <Text style={styles.permissionManualText}>{t("Add without barcode")}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -355,7 +386,7 @@ export default function ScannerScreen({ navigation, route }) {
           <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={23} color="#FFFFFF" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Scan Barcode</Text>
+          <Text style={styles.headerTitle}>{t("Scan Barcode")}</Text>
           <View style={styles.headerActions}>
             <TouchableOpacity
               style={[styles.smallIconButton, torchEnabled && styles.smallIconButtonActive]}
@@ -379,7 +410,7 @@ export default function ScannerScreen({ navigation, route }) {
                 <View style={styles.scanFrameSurface} />
                 <View style={styles.scanFrameLabel}>
                   <Ionicons name="barcode-outline" size={15} color="#FFFFFF" />
-                  <Text style={styles.scanFrameLabelText}>BARCODE AREA</Text>
+                  <Text style={styles.scanFrameLabelText}>{t("BARCODE AREA")}</Text>
                 </View>
                 <Animated.View
                   style={[
@@ -406,7 +437,7 @@ export default function ScannerScreen({ navigation, route }) {
                   { top: "50%", marginTop: scanFrameHeight / 2 + 24 },
                 ]}
               >
-                {cameraReady ? "Place the full barcode inside all four corners" : "Starting camera preview..."}
+                {cameraReady ? t("Place the full barcode inside all four corners") : t("Starting camera preview...")}
               </Text>
             </View>
 
@@ -420,7 +451,7 @@ export default function ScannerScreen({ navigation, route }) {
                 <Ionicons name="warning-outline" size={19} color="#991B1B" />
                 <Text style={styles.errorText} numberOfLines={2}>{cameraError}</Text>
                 <TouchableOpacity onPress={retryCamera}>
-                  <Text style={styles.retryText}>Retry</Text>
+                  <Text style={styles.retryText}>{t("Retry")}</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -436,8 +467,8 @@ export default function ScannerScreen({ navigation, route }) {
                     <Ionicons name="basket-outline" size={23} color="#0A46E4" />
                   </View>
                   <View style={styles.manualButtonCopy}>
-                    <Text style={styles.manualButtonTitle}>No barcode? Add manually</Text>
-                    <Text style={styles.manualButtonText}>Choose an item or create a new one</Text>
+                    <Text style={styles.manualButtonTitle}>{t("No barcode? Add manually")}</Text>
+                    <Text style={styles.manualButtonText}>{t("Choose an item or create a new one")}</Text>
                   </View>
                   <Ionicons name="chevron-up" size={20} color="#64748B" />
                 </TouchableOpacity>
@@ -539,7 +570,7 @@ export default function ScannerScreen({ navigation, route }) {
                     disabled={!cartCount}
                   >
                     <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
-                    <Text style={styles.successActionPrimaryText}>Go to Billing</Text>
+                    <Text style={styles.successActionPrimaryText}>{t("Go to Billing")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.82}
@@ -547,7 +578,7 @@ export default function ScannerScreen({ navigation, route }) {
                     onPress={scanNextProduct}
                   >
                     <Ionicons name="scan-outline" size={20} color="#0A46E4" />
-                    <Text style={styles.successActionText}>Scan New</Text>
+                    <Text style={styles.successActionText}>{t("Scan New")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     activeOpacity={0.82}
@@ -555,7 +586,9 @@ export default function ScannerScreen({ navigation, route }) {
                     onPress={openManualAfterScan}
                   >
                     <Ionicons name="add-circle-outline" size={20} color="#0A46E4" />
-                    <Text style={styles.successActionText}>Add Manually</Text>
+                    <Text style={styles.successActionText}>
+                      {scanSuccess.productSetup ? t("Set Up Product") : t("Add Manually")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               )}
