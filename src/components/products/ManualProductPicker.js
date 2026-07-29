@@ -15,7 +15,9 @@ import * as Haptics from "expo-haptics";
 
 import { useCartStore } from "../../store/cartStore";
 import { useProductStore } from "../../store/productStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { formatCurrency } from "../../utils/billing";
+import { visibleProducts } from "../../utils/catalogue";
 import { isManualBarcode } from "../../utils/products";
 import { useTranslation } from "../../i18n";
 
@@ -30,7 +32,14 @@ export default function ManualProductPicker({
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [feedback, setFeedback] = useState("");
-  const products = useProductStore((state) => state.products);
+  const allProducts = useProductStore((state) => state.products);
+  const sharedCatalogueEnabled = useSettingsStore(
+    (state) => state.settings.sharedCatalogueEnabled !== false,
+  );
+  const products = useMemo(
+    () => visibleProducts(allProducts, sharedCatalogueEnabled),
+    [allProducts, sharedCatalogueEnabled],
+  );
   const cart = useCartStore((state) => state.cart);
   const addToCart = useCartStore((state) => state.addToCart);
 

@@ -10,14 +10,23 @@ import FloatingCartBar from "../../components/cart/FloatingCartBar";
 import InventorySummary from "../../components/inventory/InventorySummary";
 import { useProductStore } from "../../store/productStore";
 import { useCartStore } from "../../store/cartStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { useTranslation } from "../../i18n";
+import { visibleProducts } from "../../utils/catalogue";
 
 export default function ProductListScreen({ navigation }) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [stockFilter, setStockFilter] = useState("All");
-  const products = useProductStore((state) => state.products);
+  const allProducts = useProductStore((state) => state.products);
+  const sharedCatalogueEnabled = useSettingsStore(
+    (state) => state.settings.sharedCatalogueEnabled !== false,
+  );
+  const products = useMemo(
+    () => visibleProducts(allProducts, sharedCatalogueEnabled),
+    [allProducts, sharedCatalogueEnabled],
+  );
   const cartHasItems = useCartStore((state) => state.cart.length > 0);
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(products.map((item) => item.category).filter(Boolean))).sort()],
@@ -110,9 +119,11 @@ export default function ProductListScreen({ navigation }) {
                 />
               ))}
             </ScrollView>
-            <Text style={styles.attribution}>
-              {t("Catalogue data: Open Food Facts family (ODbL) • Prices shown only where an INR observation is available")}
-            </Text>
+            {sharedCatalogueEnabled ? (
+              <Text style={styles.attribution}>
+                {t("Catalogue data: Open Food Facts family (ODbL) • Prices shown only where an INR observation is available")}
+              </Text>
+            ) : null}
           </>
         }
         renderItem={({ item }) => <ProductCard product={item} navigation={navigation} />}

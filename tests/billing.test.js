@@ -3,6 +3,7 @@ import test from "node:test";
 import { addCartItem, calculateBill, createInvoiceNo, getDailySalesInsights, getOrderAnalytics, reduceProductStock, roundMoney, setCartItemQuantity } from "../src/utils/billing.js";
 import { createManualBarcode, isManualBarcode } from "../src/utils/products.js";
 import { buildThermalReceipt } from "../src/utils/printer/thermalReceipt.js";
+import { visibleProducts } from "../src/utils/catalogue.js";
 
 test("calculates subtotal, GST, discount and total with money rounding", () => {
   assert.deepEqual(calculateBill([{ price: 19.99, quantity: 3 }, { price: 10, quantity: 1 }], 5, 5), {
@@ -93,6 +94,15 @@ test("cart quantity supports exact typing and clamps to available stock", () => 
   assert.equal(limited.ok, false);
   assert.equal(limited.reason, "stock");
   assert.equal(limited.cart[0].quantity, 48);
+});
+
+test("shared catalogue preference keeps only user-added products when disabled", () => {
+  const products = [
+    { id: "catalog:1", catalogue: true, name: "Shared" },
+    { id: "custom:1", catalogue: false, name: "Mine" },
+  ];
+  assert.equal(visibleProducts(products, true).length, 2);
+  assert.deepEqual(visibleProducts(products, false).map((item) => item.id), ["custom:1"]);
 });
 
 test("completed sale reduces stock without going below zero", () => {

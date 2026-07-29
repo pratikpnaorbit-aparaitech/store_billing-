@@ -13,14 +13,23 @@ import { useOrderStore } from "../../store/orderStore";
 import { useProductStore } from "../../store/productStore";
 import { useCustomerStore } from "../../store/customerStore";
 import { useAuthStore } from "../../store/authStore";
+import { useSettingsStore } from "../../store/settingsStore";
 import { formatCurrency, getOrderAnalytics } from "../../utils/billing";
+import { visibleProducts } from "../../utils/catalogue";
 import SubscriptionBanner from "../../components/subscription/SubscriptionBanner";
 import { useTranslation } from "../../i18n";
 
 export default function DashboardScreen({ navigation }) {
   const { language, t } = useTranslation();
   const orders = useOrderStore((state) => state.orders);
-  const products = useProductStore((state) => state.products);
+  const allProducts = useProductStore((state) => state.products);
+  const sharedCatalogueEnabled = useSettingsStore(
+    (state) => state.settings.sharedCatalogueEnabled !== false,
+  );
+  const products = useMemo(
+    () => visibleProducts(allProducts, sharedCatalogueEnabled),
+    [allProducts, sharedCatalogueEnabled],
+  );
   const customers = useCustomerStore((state) => state.customers);
   const user = useAuthStore((state) => state.user);
   const dashboard = useMemo(() => {

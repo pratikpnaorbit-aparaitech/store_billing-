@@ -5,6 +5,7 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -81,6 +82,7 @@ export default function ProfileScreen({ navigation }) {
   const connectionStatus = useAuthStore((state) => state.connectionStatus);
   const settings = useSettingsStore((state) => state.settings);
   const updateSettings = useSettingsStore((state) => state.updateSettings);
+  const sharedCatalogueEnabled = settings.sharedCatalogueEnabled !== false;
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(user?.name || "");
   const [storeName, setStoreName] = useState(user?.storeName || "");
@@ -269,6 +271,33 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle}>{t("Product catalogue")}</Text>
+        <Text style={styles.sectionSubtitle}>
+          {t("Choose whether shared ready-to-use products should be visible.")}
+        </Text>
+      </View>
+      <View style={styles.catalogueCard}>
+        <View style={styles.catalogueIcon}>
+          <Ionicons name="library-outline" size={23} color="#0A46E4" />
+        </View>
+        <View style={styles.flex}>
+          <Text style={styles.catalogueTitle}>{t("Shared product catalogue")}</Text>
+          <Text style={styles.catalogueText}>
+            {t(sharedCatalogueEnabled
+              ? "4,267 ready-to-use products are visible."
+              : "Only products added by you are visible.")}
+          </Text>
+        </View>
+        <Switch
+          value={sharedCatalogueEnabled}
+          onValueChange={(value) => updateSettings({ sharedCatalogueEnabled: value })}
+          trackColor={{ false: "#CBD5E1", true: "#93C5FD" }}
+          thumbColor={sharedCatalogueEnabled ? "#0A46E4" : "#FFFFFF"}
+          accessibilityLabel={t("Shared product catalogue")}
+        />
+      </View>
+
+      <View style={styles.sectionHeading}>
         <View>
           <Text style={styles.sectionTitle}>{t("Store details")}</Text>
           <Text style={styles.sectionSubtitle}>{t("This store name appears on every bill.")}</Text>
@@ -383,6 +412,10 @@ const styles = StyleSheet.create({
   languageNative: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
   languageNativeActive: { color: "#0A46E4" },
   languageEnglish: { color: "#64748B", fontSize: 9, fontWeight: "700", marginTop: 3 },
+  catalogueCard: { minHeight: 86, borderRadius: 22, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  catalogueIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
+  catalogueTitle: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
+  catalogueText: { color: "#64748B", fontSize: 11, fontWeight: "600", lineHeight: 16, marginTop: 4, paddingRight: 5 },
   actionList: { borderRadius: 24, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", overflow: "hidden" },
   actionCard: { minHeight: 78, flexDirection: "row", alignItems: "center", padding: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E2E8F0" },
   actionIcon: { width: 48, height: 48, borderRadius: 17, alignItems: "center", justifyContent: "center", marginRight: 12 },

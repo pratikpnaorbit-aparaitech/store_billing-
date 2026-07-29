@@ -6,7 +6,12 @@ const deviceLanguage = () => {
   const code = getLocales()?.[0]?.languageCode;
   return ["en", "hi", "mr"].includes(code) ? code : "en";
 };
-const defaults = { gstRate: 5, currency: "INR", language: deviceLanguage() };
+const defaults = {
+  gstRate: 5,
+  currency: "INR",
+  language: deviceLanguage(),
+  sharedCatalogueEnabled: true,
+};
 
 export const useSettingsStore = create((set) => ({
   settings: defaults,
