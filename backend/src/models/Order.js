@@ -12,6 +12,7 @@ const OrderItemSchema = new mongoose.Schema({
 const OrderSchema = new mongoose.Schema({
   owner: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
   storeName: { type: String, required: true, trim: true },
+  gstNo: { type: String, trim: true, default: "" },
   invoiceNo: { type: String, required: true },
   items: { type: [OrderItemSchema], validate: [(items) => items.length > 0, "Order requires at least one item"] },
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },

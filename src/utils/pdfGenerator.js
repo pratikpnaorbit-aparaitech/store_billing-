@@ -46,6 +46,7 @@ export function buildReceiptHtml({
   date,
   customer,
   storeName = "My Store",
+  gstNo = "",
   labels = {},
 }) {
   const label = (key, fallback) => labels[key] || fallback;
@@ -74,6 +75,7 @@ export function buildReceiptHtml({
     <body>
       <h1>${escapeHtml(storeName)}</h1>
       <p>${escapeHtml(label("tagline", "Scan • Bill • Print"))}</p>
+      ${gstNo ? `<p><b>GSTIN:</b> ${escapeHtml(gstNo)}</p>` : ""}
       <hr>
       <div class="meta">
         <p><b>${escapeHtml(label("invoice", "Invoice"))}:</b> ${escapeHtml(invoiceNo)}</p>

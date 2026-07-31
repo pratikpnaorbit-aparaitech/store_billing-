@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AppCard from "./AppCard";
 
@@ -8,8 +8,9 @@ export default function RecentBillCard({
   customer = "Walk-in Customer",
   amount = "₹420",
   payment = "Cash",
+  onPress,
 }) {
-  return (
+  const card = (
     <AppCard style={styles.card}>
       <View style={styles.left}>
         <View style={styles.iconBox}>
@@ -26,6 +27,7 @@ export default function RecentBillCard({
       <Text style={styles.amount}>{amount}</Text>
     </AppCard>
   );
+  return onPress ? <TouchableOpacity activeOpacity={0.82} onPress={onPress}>{card}</TouchableOpacity> : card;
 }
 
 const styles = StyleSheet.create({

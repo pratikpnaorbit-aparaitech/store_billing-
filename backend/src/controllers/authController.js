@@ -19,6 +19,8 @@ const publicUser = (user) => ({
   storeName: user.storeName || user.name || "My Store",
   email: user.email,
   phone: user.phone || "",
+  gstNo: user.gstNo || "",
+  avatarUrl: user.avatarUrl || "",
   registeredAt: user.createdAt,
   subscription: subscriptionView(user),
 });
@@ -153,10 +155,17 @@ exports.me = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   const name = String(req.body.name || "").trim();
   const storeName = String(req.body.storeName || "").trim();
+  const phone = String(req.body.phone || "").replace(/[\s()-]/g, "");
+  const gstNo = String(req.body.gstNo || "").trim().toUpperCase();
+  const avatarUrl = String(req.body.avatarUrl || "").trim();
   if (!name || !storeName) return res.status(400).json({ success: false, message: "Name and store name are required" });
+  if (!/^\+?\d{10,15}$/.test(phone)) return res.status(400).json({ success: false, message: "Enter a valid mobile number" });
+  if (gstNo && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstNo)) {
+    return res.status(400).json({ success: false, message: "Enter a valid 15-character GST number" });
+  }
   const user = await User.findByIdAndUpdate(
     req.userId,
-    { name, storeName },
+    { name, storeName, phone, gstNo, avatarUrl },
     { returnDocument: "after", runValidators: true },
   );
   res.json({ success: true, data: publicUser(user) });

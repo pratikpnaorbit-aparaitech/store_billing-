@@ -57,6 +57,12 @@ services:
         sync: false
       - key: RAZORPAY_PLAN_ID
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_OCR_MODEL
+        value: "gemini-3.5-flash"
+      - key: GEMINI_OCR_FALLBACK_MODEL
+        value: "gemini-3.5-flash-lite"
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD

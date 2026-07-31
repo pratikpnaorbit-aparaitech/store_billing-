@@ -13,6 +13,7 @@ import { createInvoiceNo, formatCurrency } from "../../utils/billing";
 import { hasRemoteApi } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import { useTranslation } from "../../i18n";
+import { notifyLowStock } from "../../services/notifications";
 
 export default function ReceiptScreen({ navigation, route }) {
   const { language, t } = useTranslation();
@@ -60,6 +61,7 @@ export default function ReceiptScreen({ navigation, route }) {
     ? historyOrder && {
       ...historyOrder,
       storeName: historyOrder.storeName || user?.storeName || user?.name || "My Store",
+      gstNo: historyOrder.gstNo || user?.gstNo || "",
       cart: historyCart,
       invoiceNo: historyOrder.invoiceNo,
       date: historyOrder.date || dayjs(historyOrder.createdAt).locale(language).format("DD MMM YYYY, hh:mm A"),
@@ -74,6 +76,7 @@ export default function ReceiptScreen({ navigation, route }) {
     : {
       cart: liveCart,
       storeName: user?.storeName || user?.name || "My Store",
+      gstNo: user?.gstNo || "",
       invoiceNo: liveInvoiceNo,
       date: dayjs(liveCreatedAt).locale(language).format("DD MMM YYYY, hh:mm A"),
       payment: "Cash",
@@ -99,7 +102,7 @@ export default function ReceiptScreen({ navigation, route }) {
     if (isHistory || busy || !liveCart.length) return;
     setBusy(true);
     try {
-      await addOrder({ ...data, createdAt: liveCreatedAt, customer: data.customer });
+      const savedOrder = await addOrder({ ...data, createdAt: liveCreatedAt, customer: data.customer });
       if (hasRemoteApi) {
         await Promise.allSettled([
           reduceStock(liveCart),
@@ -110,6 +113,12 @@ export default function ReceiptScreen({ navigation, route }) {
         await updateCustomerStats(data.customer?.id || "walk-in", data.total);
       }
       await clearCart();
+      const lowStock = hasRemoteApi
+        ? (savedOrder.lowStock || [])
+        : useProductStore.getState().products.filter((product) => (
+          Number(product.stock) <= 10 && liveCart.some((item) => String(item.id) === String(product.id))
+        ));
+      await notifyLowStock(lowStock);
       navigation.reset({ index: 0, routes: [{ name: "Main" }] });
     } catch (error) {
       setBusy(false);
@@ -152,6 +161,7 @@ export default function ReceiptScreen({ navigation, route }) {
         <View style={styles.receipt}>
           <Text style={styles.store}>{data.storeName}</Text>
           <Text style={styles.sub}>{t("Scan • Bill • Print")}</Text>
+          {data.gstNo ? <Text selectable style={styles.gstNo}>GSTIN: {data.gstNo}</Text> : null}
           <View style={styles.line} />
 
           <Info label={t("Invoice")} value={data.invoiceNo} />
@@ -253,6 +263,7 @@ const styles = StyleSheet.create({
     color: "#0F172A",
   },
   sub: { textAlign: "center", marginTop: 4, color: "#64748B", fontWeight: "700" },
+  gstNo: { textAlign: "center", marginTop: 4, color: "#334155", fontSize: 12, fontWeight: "800" },
   line: { height: 1, backgroundColor: "#E2E8F0", marginVertical: 16 },
   info: { flexDirection: "row", justifyContent: "space-between", marginBottom: 9, gap: 16 },
   infoLabel: { color: "#64748B", fontWeight: "700" },

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   Linking,
   Modal,
   ScrollView,
@@ -11,12 +12,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { LANGUAGE_OPTIONS, useTranslation } from "../../i18n";
+import { uploadProductImage } from "../../services/uploadApi";
 
 const LANGUAGE_SHORT_LABELS = {
   en: "ENG",
@@ -86,6 +89,9 @@ export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(user?.name || "");
   const [storeName, setStoreName] = useState(user?.storeName || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [gstNo, setGstNo] = useState(user?.gstNo || "");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [gstRate, setGstRate] = useState(String(settings.gstRate));
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -106,15 +112,59 @@ export default function ProfileScreen({ navigation }) {
     if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
       return Alert.alert(t("Invalid GST"), t("GST rate must be between 0 and 100."));
     }
+    const normalizedPhone = phone.replace(/[\s()-]/g, "");
+    if (!/^\+?\d{10,15}$/.test(normalizedPhone)) {
+      return Alert.alert(t("Invalid mobile number"), t("Enter a valid 10 to 15 digit mobile number."));
+    }
+    const normalizedGst = gstNo.trim().toUpperCase();
+    if (normalizedGst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizedGst)) {
+      return Alert.alert(t("Invalid GST number"), t("Enter a valid 15-character GST number or leave it blank."));
+    }
     setSaving(true);
     try {
       await Promise.all([
-        updateProfile({ name: name.trim(), storeName: storeName.trim() }),
+        updateProfile({
+          name: name.trim(),
+          storeName: storeName.trim(),
+          phone: normalizedPhone,
+          gstNo: normalizedGst,
+          avatarUrl,
+        }),
         updateSettings({ gstRate: rate }),
       ]);
       Alert.alert(t("Profile updated"), t("Your store name and billing preferences were saved."));
     } catch (error) {
       Alert.alert(t("Could not save"), error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const chooseProfileImage = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        return Alert.alert(t("Permission required"), t("Allow photo access to choose a profile image."));
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.75,
+      });
+      if (result.canceled) return;
+      setSaving(true);
+      const uploaded = await uploadProductImage(result.assets[0].uri);
+      setAvatarUrl(uploaded.url);
+      await updateProfile({
+        name: name.trim(),
+        storeName: storeName.trim(),
+        phone: phone.replace(/[\s()-]/g, ""),
+        gstNo: gstNo.trim().toUpperCase(),
+        avatarUrl: uploaded.url,
+      });
+    } catch (error) {
+      Alert.alert(t("Image upload failed"), error.message);
     } finally {
       setSaving(false);
     }
@@ -181,9 +231,12 @@ export default function ProfileScreen({ navigation }) {
       </View>
 
       <LinearGradient colors={["#0A46E4", "#0736B5", "#0F172A"]} style={styles.identityCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{(name || "U").charAt(0).toUpperCase()}</Text>
-        </View>
+        <TouchableOpacity style={styles.avatar} onPress={chooseProfileImage} activeOpacity={0.82}>
+          {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarImage} /> : (
+            <Text style={styles.avatarText}>{(name || "U").charAt(0).toUpperCase()}</Text>
+          )}
+          <View style={styles.cameraBadge}><Ionicons name="camera" size={12} color="#FFFFFF" /></View>
+        </TouchableOpacity>
         <View style={styles.identityCopy}>
           <Text style={styles.storeName} numberOfLines={1}>{storeName || t("My Store")}</Text>
           <Text style={styles.ownerName}>{name || t("Store owner")}</Text>
@@ -306,6 +359,8 @@ export default function ProfileScreen({ navigation }) {
       <View style={styles.formCard}>
         <Field label={t("Owner name")} icon="person-outline" value={name} onChangeText={setName} />
         <Field label={t("Store name")} icon="storefront-outline" value={storeName} onChangeText={setStoreName} />
+        <Field label={t("Mobile number")} icon="call-outline" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <Field label={`${t("GST number")} (${t("Optional")})`} icon="document-text-outline" value={gstNo} onChangeText={(value) => setGstNo(value.toUpperCase())} />
         <Field label={t("Default GST %")} icon="calculator-outline" value={gstRate} onChangeText={setGstRate} keyboardType="decimal-pad" />
         <View style={styles.readOnlyField}>
           <Text style={styles.label}>{t("Account email")}</Text>
@@ -389,7 +444,9 @@ const styles = StyleSheet.create({
   cloudText: { color: "#334155", fontSize: 11, fontWeight: "900", textTransform: "capitalize" },
   identityCard: { width: "100%", maxWidth: "100%", minWidth: 0, minHeight: 190, borderRadius: 28, padding: 20, flexDirection: "row", alignItems: "flex-start", overflow: "hidden" },
   avatar: { width: 70, height: 70, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.16)", borderWidth: 1, borderColor: "rgba(255,255,255,0.28)" },
+  avatarImage: { width: "100%", height: "100%", borderRadius: 23 },
   avatarText: { color: "#FFFFFF", fontSize: 29, fontWeight: "900" },
+  cameraBadge: { position: "absolute", right: -4, bottom: -4, width: 25, height: 25, borderRadius: 10, backgroundColor: "#0F172A", borderWidth: 2, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   identityCopy: { flex: 1, minWidth: 0, marginLeft: 15, paddingTop: 5 },
   storeName: { width: "100%", flexShrink: 1, overflow: "hidden", color: "#FFFFFF", fontSize: 22, fontWeight: "900" },
   ownerName: { color: "#DBEAFE", fontSize: 13, fontWeight: "700", marginTop: 5 },

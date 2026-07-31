@@ -1,13 +1,13 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { formatCurrency } from "../../utils/billing";
 import { useTranslation } from "../../i18n";
 
-export default function SalesChart({ data }) {
+export default function SalesChart({ data, onPress }) {
   const { t } = useTranslation();
   const max = Math.max(...data.map((i) => i.amount), 1);
 
-  return (
+  const chart = (
     <View style={styles.card}>
       <Text style={styles.title}>{t("Weekly Sales Trend")}</Text>
 
@@ -26,6 +26,7 @@ export default function SalesChart({ data }) {
       })}
     </View>
   );
+  return onPress ? <TouchableOpacity activeOpacity={0.84} onPress={onPress}>{chart}</TouchableOpacity> : chart;
 }
 
 const styles = StyleSheet.create({

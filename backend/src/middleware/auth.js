@@ -40,7 +40,7 @@ module.exports = async function requireAuth(req, res, next) {
       });
     }
     const user = await User.findById(payload.sub)
-      .select("_id name email phone storeName role subscription accountAccess createdAt updatedAt");
+      .select("_id name email phone gstNo avatarUrl storeName role subscription accountAccess createdAt updatedAt");
     if (!user) return res.status(401).json({ success: false, message: "Account no longer exists" });
     req.user = user;
     req.userId = user._id;

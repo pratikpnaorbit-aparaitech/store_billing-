@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import AppCard from "./AppCard";
 
@@ -8,8 +8,9 @@ export default function StatCard({
   title,
   value,
   color = "#0A46E4",
+  onPress,
 }) {
-  return (
+  const content = (
     <AppCard style={styles.card}>
       <View style={[styles.iconBox, { backgroundColor: `${color}15` }]}>
         <Ionicons name={icon} size={22} color={color} />
@@ -19,9 +20,11 @@ export default function StatCard({
       <Text style={styles.title}>{title}</Text>
     </AppCard>
   );
+  return onPress ? <TouchableOpacity style={styles.touch} activeOpacity={0.82} onPress={onPress}>{content}</TouchableOpacity> : content;
 }
 
 const styles = StyleSheet.create({
+  touch: { flex: 1 },
   card: {
     flex: 1,
     marginHorizontal: 4,

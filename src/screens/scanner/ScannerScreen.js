@@ -59,11 +59,12 @@ export default function ScannerScreen({ navigation, route }) {
   const [pulse] = useState(() => new Animated.Value(0));
   const [scanLineProgress] = useState(() => new Animated.Value(0));
   const successTimer = useRef(null);
+  const scanLock = useRef(false);
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const scanFrameWidth = Math.min(windowWidth * 0.76, 310);
-  const scanFrameHeight = scanFrameWidth / 1.45;
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const scanFrameWidth = Math.max(240, windowWidth - 28);
+  const scanFrameHeight = Math.max(300, Math.min(windowHeight * 0.62, windowHeight - 250));
 
   const products = useProductStore((state) => state.products);
   const lookupBarcode = useProductStore((state) => state.lookupBarcode);
@@ -75,6 +76,10 @@ export default function ScannerScreen({ navigation, route }) {
   useEffect(() => {
     rememberCameraPermission(permission);
   }, [permission]);
+
+  useEffect(() => {
+    if (!scanned) scanLock.current = false;
+  }, [scanned]);
 
   const requestCameraAccess = async () => {
     const nextPermission = await requestPermission();
@@ -243,8 +248,9 @@ export default function ScannerScreen({ navigation, route }) {
   };
 
   const handleBarcodeScanned = async ({ data }) => {
-    if (scanned) return;
+    if (scanLock.current || scanned) return;
 
+    scanLock.current = true;
     setScanned(true);
 
     if (route?.params?.mode === "fillBarcode") {
@@ -422,7 +428,7 @@ export default function ScannerScreen({ navigation, route }) {
                 <View style={styles.scanFrameSurface} />
                 <View style={styles.scanFrameLabel}>
                   <Ionicons name="barcode-outline" size={15} color="#FFFFFF" />
-                  <Text style={styles.scanFrameLabelText}>{t("BARCODE AREA")}</Text>
+                  <Text style={styles.scanFrameLabelText}>{t("BARCODE ANYWHERE • FULL SCREEN")}</Text>
                 </View>
                 <Animated.View
                   style={[
@@ -443,14 +449,16 @@ export default function ScannerScreen({ navigation, route }) {
                 <View style={[styles.corner, styles.bottomRight]} />
               </View>
 
-              <Text
-                style={[
-                  styles.hint,
-                  { top: "50%", marginTop: scanFrameHeight / 2 + 24 },
-                ]}
-              >
-                {cameraReady ? t("Place the full barcode inside all four corners") : t("Starting camera preview...")}
-              </Text>
+              {!cameraReady ? (
+                <Text
+                  style={[
+                    styles.hint,
+                    { top: Math.max(insets.top, 16) + 64 },
+                  ]}
+                >
+                  {t("Starting camera preview...")}
+                </Text>
+              ) : null}
             </View>
 
           </View>

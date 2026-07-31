@@ -18,6 +18,7 @@ import { formatCurrency, getOrderAnalytics } from "../../utils/billing";
 import { visibleProducts } from "../../utils/catalogue";
 import SubscriptionBanner from "../../components/subscription/SubscriptionBanner";
 import { useTranslation } from "../../i18n";
+import { useNotificationStore } from "../../store/notificationStore";
 
 export default function DashboardScreen({ navigation }) {
   const { language, t } = useTranslation();
@@ -32,6 +33,7 @@ export default function DashboardScreen({ navigation }) {
   );
   const customers = useCustomerStore((state) => state.customers);
   const user = useAuthStore((state) => state.user);
+  const unreadNotifications = useNotificationStore((state) => state.notifications.filter((item) => !item.read).length);
   const dashboard = useMemo(() => {
     const stats = getOrderAnalytics(orders, products);
     const weekly = Array.from({ length: 7 }, (_, index) => dayjs().subtract(6 - index, "day")).map((date) => ({ day: date.locale(language).format("ddd"), amount: orders.filter((order) => dayjs(order.createdAt).isSame(date, "day")).reduce((sum, order) => sum + Number(order.total || 0), 0) }));
@@ -43,13 +45,13 @@ export default function DashboardScreen({ navigation }) {
   }, [language, orders, products]);
 
   return <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <AppHeader name={user?.name || "User"} onNotifications={() => navigation.navigate("Products")} />
+    <AppHeader name={user?.name || "User"} avatarUrl={user?.avatarUrl} notificationCount={unreadNotifications} onNotifications={() => navigation.getParent()?.navigate("Notifications")} />
     <SubscriptionBanner onPress={() => navigation.getParent()?.navigate("ManageSubscription", { migration: true })} />
-    <RevenueCard revenue={formatCurrency(dashboard.todaySales)} growth={t("Live totals")} orders={String(dashboard.todayOrders)} customers={String(Math.max(0, customers.length - 1))} />
+    <RevenueCard revenue={formatCurrency(dashboard.todaySales)} growth={t("Live totals")} orders={String(dashboard.todayOrders)} customers={String(Math.max(0, customers.length - 1))} onPress={() => navigation.getParent()?.navigate("SalesInsights")} />
     <SectionHeader title={t("Quick Actions")} /><View style={styles.quick}><QuickActionCard icon="scan-outline" title={t("Scan Product")} onPress={() => navigation.navigate("Scan")} /><QuickActionCard icon="cube-outline" title={t("Products")} onPress={() => navigation.navigate("Products")} /><QuickActionCard icon="receipt-outline" title={t("Orders")} onPress={() => navigation.navigate("Orders")} /><QuickActionCard icon="bar-chart-outline" title={t("Reports")} onPress={() => navigation.getParent()?.navigate("Reports")} /></View>
-    <SectionHeader title={t("Business Overview")} /><View style={styles.stats}><StatCard icon="bag-check-outline" title={t("Orders")} value={String(dashboard.stats.totalOrders)} color="#0A46E4" /><StatCard icon="cash-outline" title={t("Revenue")} value={formatCurrency(dashboard.stats.totalSales)} color="#22C55E" /></View><View style={styles.stats}><StatCard icon="cube-outline" title={t("Items Sold")} value={String(dashboard.stats.productsSold)} color="#8B5CF6" /><StatCard icon="warning-outline" title={t("Low Stock")} value={String(dashboard.stats.lowStock)} color="#EF4444" /></View>
-    <SectionHeader title={t("Recent Bills")} />{orders.slice(0, 3).map((order) => <RecentBillCard key={order.id} billNo={order.invoiceNo} customer={order.customer?.name || t("Walk-in Customer")} amount={formatCurrency(order.total)} payment={t(order.payment)} />)}{!orders.length ? <Text style={styles.empty}>{t("No completed bills yet.")}</Text> : null}
-    <View style={styles.block}><SalesChart data={dashboard.weekly} /><Text style={styles.sectionTitle}>{t("Top Selling Products")}</Text>{dashboard.top.length ? dashboard.top.map((item) => <TopProductCard key={item.id} product={item} />) : <Text style={styles.empty}>{t("Sales data will appear after the first bill.")}</Text>}</View>
+    <SectionHeader title={t("Business Overview")} /><View style={styles.stats}><StatCard icon="bag-check-outline" title={t("Orders")} value={String(dashboard.stats.totalOrders)} color="#0A46E4" onPress={() => navigation.navigate("Orders")} /><StatCard icon="cash-outline" title={t("Revenue")} value={formatCurrency(dashboard.stats.totalSales)} color="#22C55E" onPress={() => navigation.getParent()?.navigate("Reports")} /></View><View style={styles.stats}><StatCard icon="cube-outline" title={t("Items Sold")} value={String(dashboard.stats.productsSold)} color="#8B5CF6" onPress={() => navigation.getParent()?.navigate("Reports")} /><StatCard icon="warning-outline" title={t("Low Stock")} value={String(dashboard.stats.lowStock)} color="#EF4444" onPress={() => navigation.navigate("Products", { stockFilter: "Low stock" })} /></View>
+    <SectionHeader title={t("Recent Bills")} />{orders.slice(0, 3).map((order) => <RecentBillCard key={order.id} billNo={order.invoiceNo} customer={order.customer?.name || t("Walk-in Customer")} amount={formatCurrency(order.total)} payment={t(order.payment)} onPress={() => navigation.getParent()?.navigate("Receipt", { orderId: order.id || order._id, fromHistory: true })} />)}{!orders.length ? <Text style={styles.empty}>{t("No completed bills yet.")}</Text> : null}
+    <View style={styles.block}><SalesChart data={dashboard.weekly} onPress={() => navigation.getParent()?.navigate("Reports")} /><Text style={styles.sectionTitle}>{t("Top Selling Products")}</Text>{dashboard.top.length ? dashboard.top.map((item) => <TopProductCard key={item.id} product={item} onPress={() => navigation.navigate("Products", { search: item.name })} />) : <Text style={styles.empty}>{t("Sales data will appear after the first bill.")}</Text>}</View>
   </ScrollView>;
 }
 const styles = StyleSheet.create({ screen: { flex: 1, backgroundColor: "#F8FAFC" }, content: { paddingHorizontal: 20, paddingBottom: 110 }, quick: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, stats: { flexDirection: "row", gap: 12, marginBottom: 12 }, empty: { color: "#64748B", textAlign: "center", paddingVertical: 22 }, block: { marginTop: 24 }, sectionTitle: { fontSize: 20, fontWeight: "900", color: "#0F172A", marginTop: 24, marginBottom: 14 } });

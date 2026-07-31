@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, FlatList, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -14,11 +14,18 @@ import { useSettingsStore } from "../../store/settingsStore";
 import { useTranslation } from "../../i18n";
 import { visibleProducts } from "../../utils/catalogue";
 
-export default function ProductListScreen({ navigation }) {
+export default function ProductListScreen({ navigation, route }) {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(route?.params?.search || "");
   const [activeCategory, setActiveCategory] = useState("All");
-  const [stockFilter, setStockFilter] = useState("All");
+  const [stockFilter, setStockFilter] = useState(route?.params?.stockFilter || "All");
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("focus", () => {
+      if (route?.params?.stockFilter) setStockFilter(route.params.stockFilter);
+      if (route?.params?.search) setSearch(route.params.search);
+    });
+    return unsubscribe;
+  }, [navigation, route?.params?.search, route?.params?.stockFilter]);
   const allProducts = useProductStore((state) => state.products);
   const sharedCatalogueEnabled = useSettingsStore(
     (state) => state.settings.sharedCatalogueEnabled !== false,
@@ -49,7 +56,9 @@ export default function ProductListScreen({ navigation }) {
       const matchesStock = stockFilter === "All"
         || (stockFilter === "In stock" && stock > 0)
         || (stockFilter === "Setup" && (stock <= 0 || Number(item.price || 0) <= 0))
-        || (stockFilter === "Custom" && !item.catalogue);
+        || (stockFilter === "Custom" && !item.catalogue)
+        || (stockFilter === "Low stock" && stock > 0 && stock <= 10)
+        || (stockFilter === "Catalogue" && item.catalogue);
       return matchesCategory && matchesSearch && matchesStock;
     });
   }, [search, activeCategory, products, stockFilter]);
@@ -68,7 +77,7 @@ export default function ProductListScreen({ navigation }) {
               <Text style={styles.subtitle}>{t("Manage inventory and pricing")}</Text>
             </View>
 
-            <InventorySummary products={products} />
+            <InventorySummary products={products} onSelect={setStockFilter} />
 
             <TouchableOpacity
               style={styles.importCard}
@@ -92,7 +101,7 @@ export default function ProductListScreen({ navigation }) {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.stockFilters}
             >
-              {["All", "In stock", "Setup", "Custom"].map((filter) => (
+              {["All", "In stock", "Low stock", "Setup", "Custom", "Catalogue"].map((filter) => (
                 <TouchableOpacity
                   key={filter}
                   onPress={() => setStockFilter(filter)}

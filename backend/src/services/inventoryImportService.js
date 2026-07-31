@@ -4,6 +4,7 @@ const { parse } = require("csv-parse/sync");
 const readXlsxFile = require("read-excel-file/node");
 const { createCanvas } = require("@napi-rs/canvas");
 const { createWorker, OEM } = require("tesseract.js");
+const { extractInventoryWithGemini } = require("./geminiInventoryService");
 
 const MAX_ROWS = 150;
 const MAX_PDF_PAGES = 8;
@@ -282,6 +283,7 @@ async function parseInventoryFile(file, language = "en") {
   let extractedText = "";
   let ocrConfidence = null;
   let pageCount = null;
+  let extractionEngine = "structured-parser";
   if (kind === "excel") {
     const rows = await rowsFromWorkbook(file.buffer);
     candidates = tableRows(rows);
@@ -299,30 +301,62 @@ async function parseInventoryFile(file, language = "en") {
     candidates = tableRows(rows);
     if (!candidates.length) extractedText = text;
   } else if (kind === "pdf") {
-    const pdf = await textFromPdf(file.buffer);
-    extractedText = pdf.text;
-    pageCount = pdf.pageCount;
-    if (pdf.pageImages.length) {
-      const recognized = await recognizeImages(pdf.pageImages, language);
-      extractedText = `${extractedText}\n${recognized.text}`.trim();
-      ocrConfidence = recognized.confidence;
+    try {
+      candidates = await extractInventoryWithGemini(file, kind) || [];
+      if (candidates.length) extractionEngine = "gemini";
+    } catch (error) {
+      console.warn("Gemini PDF extraction failed; using local OCR", error.message);
+    }
+    if (!candidates.length) {
+      const pdf = await textFromPdf(file.buffer);
+      extractedText = pdf.text;
+      pageCount = pdf.pageCount;
+      if (pdf.pageImages.length) {
+        const recognized = await recognizeImages(pdf.pageImages, language);
+        extractedText = `${extractedText}\n${recognized.text}`.trim();
+        ocrConfidence = recognized.confidence;
+      }
+      extractionEngine = "local-ocr";
     }
   } else if (kind === "image") {
-    const recognized = await recognizeImages([file.buffer], language);
-    extractedText = recognized.text;
-    ocrConfidence = recognized.confidence;
+    try {
+      candidates = await extractInventoryWithGemini(file, kind) || [];
+      if (candidates.length) extractionEngine = "gemini";
+    } catch (error) {
+      console.warn("Gemini image extraction failed; using local OCR", error.message);
+    }
+    if (!candidates.length) {
+      const recognized = await recognizeImages([file.buffer], language);
+      extractedText = recognized.text;
+      ocrConfidence = recognized.confidence;
+      extractionEngine = "local-ocr";
+    }
   } else {
     const error = new Error("Use a JPG, PNG, WebP, PDF, CSV or Excel file.");
     error.status = 415;
     throw error;
   }
-  if (!candidates.length) candidates = freeTextRows(extractedText);
+  if (!candidates.length) {
+    candidates = freeTextRows(extractedText);
+    if (process.env.GEMINI_API_KEY && extractedText) {
+      try {
+        const geminiRows = await extractInventoryWithGemini(file, "text", extractedText);
+        if (geminiRows?.length) {
+          candidates = geminiRows;
+          extractionEngine = "gemini";
+        }
+      } catch (error) {
+        console.warn("Gemini text extraction failed; keeping parsed rows", error.message);
+      }
+    }
+  }
   return {
     kind,
     candidates,
     extractedText: extractedText.slice(0, 12000),
     ocrConfidence,
     pageCount,
+    extractionEngine,
   };
 }
 

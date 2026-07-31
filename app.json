@@ -47,7 +47,14 @@
       "expo-secure-store",
       "expo-sharing",
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-notifications",
+        {
+          "color": "#0A46E4",
+          "defaultChannel": "low-stock"
+        }
+      ]
     ],
     "extra": {
       "supportsOfflineMode": true,

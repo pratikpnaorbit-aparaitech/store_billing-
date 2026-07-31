@@ -42,6 +42,8 @@ const UserSchema = new mongoose.Schema({
   storeName: { type: String, trim: true, default: "" },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
   phone: { type: String, trim: true, default: "" },
+  gstNo: { type: String, trim: true, uppercase: true, default: "" },
+  avatarUrl: { type: String, trim: true, default: "" },
   password: { type: String, required: true, select: false },
   role: { type: String, default: "user" },
   subscription: { type: SubscriptionSchema, default: () => ({}) },

@@ -3,6 +3,7 @@ const Customer = require("../models/Customer");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 const { calculateOrderTotals, money } = require("../services/orderCalculator");
+const { sendLowStockAlert } = require("../config/mailer");
 
 const invoiceNo = (requested) => /^INV-[A-Z0-9-]{6,32}$/i.test(String(requested || ""))
   ? String(requested).toUpperCase()
@@ -34,6 +35,7 @@ exports.createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     let savedOrder;
+    let soldProductIds = [];
     await session.withTransaction(async () => {
       const items = [];
       for (const requested of requestedItems) {
@@ -58,6 +60,7 @@ exports.createOrder = async (req, res) => {
           quantity,
           total: money(product.price * quantity),
         });
+        soldProductIds.push(product._id);
       }
 
       const { subtotal, gstRate, gst, discount, total } = calculateOrderTotals(
@@ -87,6 +90,7 @@ exports.createOrder = async (req, res) => {
       [savedOrder] = await Order.create([{
         owner: req.userId,
         storeName: req.user.storeName || req.user.name || "My Store",
+        gstNo: req.user.gstNo || "",
         invoiceNo: invoiceNo(req.body.invoiceNo),
         items,
         customerId,
@@ -99,7 +103,29 @@ exports.createOrder = async (req, res) => {
         total,
       }], { session });
     });
-    res.status(201).json({ success: true, data: serializeOrder(savedOrder) });
+    const lowStock = await Product.find({
+      _id: { $in: soldProductIds },
+      owner: req.userId,
+      active: true,
+      stock: { $lte: 10 },
+    }).select("_id name stock barcode");
+    if (lowStock.length) {
+      sendLowStockAlert(req.user.email, lowStock).catch((error) => {
+        console.error("Low-stock email failed", error.message);
+      });
+    }
+    res.status(201).json({
+      success: true,
+      data: {
+        ...serializeOrder(savedOrder),
+        lowStock: lowStock.map((product) => ({
+          id: product._id,
+          name: product.name,
+          stock: product.stock,
+          barcode: product.barcode,
+        })),
+      },
+    });
   } catch (error) {
     res.status(409).json({ success: false, message: error.message });
   } finally {

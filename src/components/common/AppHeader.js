@@ -12,7 +12,7 @@ function getGreeting() {
   return "Good Evening";
 }
 
-export default function AppHeader({ name = "User", onNotifications }) {
+export default function AppHeader({ name = "User", avatarUrl, notificationCount = 0, onNotifications }) {
   const { language, t } = useTranslation();
   return (
     <View style={styles.header}>
@@ -25,8 +25,11 @@ export default function AppHeader({ name = "User", onNotifications }) {
       <View style={styles.right}>
         <TouchableOpacity activeOpacity={0.8} style={styles.iconButton} onPress={onNotifications}>
           <Ionicons name="notifications-outline" size={21} color="#0F172A" />
+          {notificationCount > 0 ? (
+            <View style={styles.badge}><Text style={styles.badgeText}>{notificationCount > 9 ? "9+" : notificationCount}</Text></View>
+          ) : null}
         </TouchableOpacity>
-        <UserAvatar name={name} />
+        <UserAvatar name={name} uri={avatarUrl} />
       </View>
     </View>
   );
@@ -71,4 +74,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
+  badge: { position: "absolute", right: -4, top: -5, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: "#DC2626", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#F8FAFC" },
+  badgeText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
 });

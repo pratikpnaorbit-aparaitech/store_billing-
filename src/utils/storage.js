@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   orders: "SMART_BILLING_ORDERS",
   customers: "SMART_BILLING_CUSTOMERS",
   settings: "SMART_BILLING_SETTINGS",
+  notifications: "SMART_BILLING_NOTIFICATIONS",
 };
 
 export async function saveJson(key, value) {
@@ -39,6 +40,8 @@ export const saveCustomers = (customers) => saveJson(STORAGE_KEYS.customers, cus
 export const loadCustomers = () => loadJson(STORAGE_KEYS.customers, null);
 export const saveSettings = (settings) => saveJson(STORAGE_KEYS.settings, settings);
 export const loadSettings = () => loadJson(STORAGE_KEYS.settings, null);
+export const saveNotifications = (notifications) => saveJson(STORAGE_KEYS.notifications, notifications);
+export const loadNotifications = () => loadJson(STORAGE_KEYS.notifications, []);
 
 export async function clearBusinessData() {
   await AsyncStorage.multiRemove([
@@ -46,5 +49,6 @@ export async function clearBusinessData() {
     STORAGE_KEYS.cart,
     STORAGE_KEYS.orders,
     STORAGE_KEYS.customers,
+    STORAGE_KEYS.notifications,
   ]);
 }

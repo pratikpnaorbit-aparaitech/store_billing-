@@ -1,11 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useTranslation } from "../../i18n";
 
-export default function TopProductCard({ product }) {
+export default function TopProductCard({ product, onPress }) {
   const { t } = useTranslation();
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.82}>
       <View style={styles.rankBox}>
         <Text style={styles.rank}>#{product.rank}</Text>
       </View>
@@ -14,7 +14,7 @@ export default function TopProductCard({ product }) {
         <Text style={styles.name}>{product.name}</Text>
         <Text style={styles.sold}>{product.sold} {t("units sold")}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

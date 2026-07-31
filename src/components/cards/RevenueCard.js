@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "../../i18n";
@@ -9,9 +9,10 @@ export default function RevenueCard({
   growth = "+12.6%",
   orders = "28",
   customers = "31",
+  onPress,
 }) {
   const { t } = useTranslation();
-  return (
+  const card = (
     <LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.card}>
       <View style={styles.topRow}>
         <View>
@@ -44,6 +45,7 @@ export default function RevenueCard({
       </View>
     </LinearGradient>
   );
+  return onPress ? <TouchableOpacity activeOpacity={0.86} onPress={onPress}>{card}</TouchableOpacity> : card;
 }
 
 const styles = StyleSheet.create({

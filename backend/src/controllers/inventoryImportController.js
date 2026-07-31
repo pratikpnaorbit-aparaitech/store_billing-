@@ -60,6 +60,7 @@ exports.previewInventoryImport = async (req, res) => {
           size: req.file.size,
           pageCount: parsed.pageCount,
           ocrConfidence: parsed.ocrConfidence,
+          extractionEngine: parsed.extractionEngine,
         },
         extractedText: parsed.extractedText,
         candidates,

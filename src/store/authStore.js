@@ -90,7 +90,14 @@ export const useAuthStore = create((set, get) => ({
   register: async ({ name, email, phone, password, storeName }) => {
     const payload = { name: name.trim(), email: email.trim().toLowerCase(), phone: phone?.trim() || "", password, storeName: storeName.trim() || "My Store" };
     if (hasRemoteApi) throw new Error("Email verification is required for cloud registration.");
-    const user = { name: payload.name, email: payload.email, storeName: payload.storeName };
+    const user = {
+      name: payload.name,
+      email: payload.email,
+      phone: payload.phone,
+      gstNo: "",
+      avatarUrl: "",
+      storeName: payload.storeName,
+    };
     await setAuthData({ user, credentials: { email: payload.email, password }, session: true, mode: "local" });
     set({ user, ready: true, connectionStatus: "offline" });
     return user;

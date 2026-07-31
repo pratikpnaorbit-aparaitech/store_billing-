@@ -56,3 +56,27 @@ async function sendCodeEmail(email, code, purpose) {
 
 exports.sendPasswordResetCode = (email, code) => sendCodeEmail(email, code, "password reset");
 exports.sendRegistrationCode = (email, code) => sendCodeEmail(email, code, "registration");
+
+exports.sendLowStockAlert = async (email, products = []) => {
+  if (!email || !products.length || !process.env.EMAIL_FROM) return false;
+  const rows = products
+    .map((product) => `<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0">${String(product.name)}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;text-align:right"><strong>${Number(product.stock)}</strong></td></tr>`)
+    .join("");
+  const subject = `Low stock alert: ${products.length} product${products.length === 1 ? "" : "s"} need refill`;
+  const html = `<h2>Smart Billing low-stock alert</h2><p>A bill was completed and these products are now low in stock. Please refill them.</p><table style="border-collapse:collapse;width:100%"><thead><tr><th style="padding:8px;text-align:left">Product</th><th style="padding:8px;text-align:right">Stock left</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const text = `Low stock after billing:\n${products.map((product) => `${product.name}: ${product.stock} left`).join("\n")}`;
+
+  if (process.env.BREVO_API_KEY) {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { accept: "application/json", "api-key": process.env.BREVO_API_KEY, "content-type": "application/json" },
+      body: JSON.stringify({ sender: senderDetails(), to: [{ email }], subject, htmlContent: html }),
+    });
+    if (!response.ok) throw new Error("Low-stock email provider rejected the request");
+    return true;
+  }
+  const mailer = getTransporter();
+  if (!mailer) return false;
+  await mailer.sendMail({ from: process.env.EMAIL_FROM, to: email, subject, text, html });
+  return true;
+};

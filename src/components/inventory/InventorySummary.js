@@ -1,9 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "../../i18n";
 
-export default function InventorySummary({ products = [] }) {
+export default function InventorySummary({ products = [], onSelect }) {
   const { t } = useTranslation();
   const total = products.filter((product) => (
     Number(product.stock || 0) > 0 || !product.catalogue || product.virtual === false
@@ -21,20 +21,20 @@ export default function InventorySummary({ products = [] }) {
       </View>
 
       <View style={styles.row}>
-        <Stat label={t("My Inventory")} value={total} color="#0A46E4" />
-        <Stat label={t("Low Stock")} value={lowStock} color="#F59E0B" />
-        <Stat label={t("Catalogue")} value={catalogue} color="#7C3AED" />
+        <Stat label={t("My Inventory")} value={total} color="#0A46E4" onPress={() => onSelect?.("Custom")} />
+        <Stat label={t("Low Stock")} value={lowStock} color="#F59E0B" onPress={() => onSelect?.("Low stock")} />
+        <Stat label={t("Catalogue")} value={catalogue} color="#7C3AED" onPress={() => onSelect?.("Catalogue")} />
       </View>
     </View>
   );
 }
 
-function Stat({ label, value, color }) {
+function Stat({ label, value, color, onPress }) {
   return (
-    <View style={styles.stat}>
+    <TouchableOpacity style={styles.stat} onPress={onPress} activeOpacity={0.75}>
       <Text style={[styles.value, { color }]}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
-    </View>
+    </TouchableOpacity>
   );
 }
 

@@ -1,12 +1,12 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { Image, View, Text, StyleSheet } from "react-native";
 
-export default function UserAvatar({ name = "Vivek" }) {
+export default function UserAvatar({ name = "Vivek", uri }) {
   const initial = name?.charAt(0)?.toUpperCase() || "U";
 
   return (
     <View style={styles.avatar}>
-      <Text style={styles.initial}>{initial}</Text>
+      {uri ? <Image source={{ uri }} style={styles.image} /> : <Text style={styles.initial}>{initial}</Text>}
     </View>
   );
 }
@@ -25,4 +25,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  image: { width: "100%", height: "100%", borderRadius: 18 },
 });

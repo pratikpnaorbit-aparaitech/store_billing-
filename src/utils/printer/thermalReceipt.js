@@ -10,6 +10,7 @@ export function buildThermalReceipt({
   total = 0,
   customer,
   storeName = "My Store",
+  gstNo = "",
   labels = {},
 }) {
   const label = (key, fallback) => labels[key] || fallback;
@@ -24,7 +25,7 @@ export function buildThermalReceipt({
   }).join("\n");
   return `${String(storeName).toUpperCase()}
 ${label("tagline", "Scan • Bill • Print")}
-${line}
+${gstNo ? `GSTIN: ${gstNo}\n` : ""}${line}
 ${label("invoice", "Invoice")}: ${invoiceNo}
 ${label("date", "Date")}: ${date}
 ${label("customer", "Customer")}: ${customer?.name || label("walkInCustomer", "Walk-in Customer")}

@@ -13,6 +13,8 @@ import { useOrderStore } from "./src/store/orderStore";
 import { useCustomerStore } from "./src/store/customerStore";
 import { useAuthStore } from "./src/store/authStore";
 import { useSettingsStore } from "./src/store/settingsStore";
+import { useNotificationStore } from "./src/store/notificationStore";
+import { configureNotifications } from "./src/services/notifications";
 import { preloadCameraPermission } from "./src/services/cameraPermission";
 
 export default function App() {
@@ -31,11 +33,14 @@ export default function App() {
   const resetCart = useCartStore((state) => state.resetCart);
   const resetOrders = useOrderStore((state) => state.resetOrders);
   const resetCustomers = useCustomerStore((state) => state.resetCustomers);
+  const hydrateNotifications = useNotificationStore((state) => state.hydrateNotifications);
+  const resetNotifications = useNotificationStore((state) => state.resetNotifications);
 
   useEffect(() => {
     hydrateAuth();
     hydrateSettings();
     preloadCameraPermission();
+    configureNotifications().catch(() => undefined);
   }, [hydrateAuth, hydrateSettings]);
 
   useEffect(() => {
@@ -49,6 +54,7 @@ export default function App() {
       resetCart();
       resetOrders();
       resetCustomers();
+      resetNotifications();
       return;
     }
     Promise.all([
@@ -56,10 +62,11 @@ export default function App() {
       hydrateCart(),
       hydrateOrders(),
       hydrateCustomers(),
+      hydrateNotifications(),
     ])
       .then(() => useCartStore.getState().reconcileCart(useProductStore.getState().products))
       .catch((error) => console.warn("App data hydration failed", error));
-  }, [authReady, hydrateCart, hydrateCustomers, hydrateOrders, hydrateProducts, resetCart, resetCustomers, resetOrders, resetProducts, user]);
+  }, [authReady, hydrateCart, hydrateCustomers, hydrateNotifications, hydrateOrders, hydrateProducts, resetCart, resetCustomers, resetNotifications, resetOrders, resetProducts, user]);
 
   useEffect(() => {
     if (!authReady || !cloudMode || !user?.id) return undefined;
