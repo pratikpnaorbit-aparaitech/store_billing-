@@ -14,7 +14,9 @@ import ManualProductPicker from "../../components/products/ManualProductPicker";
 import { useCartStore } from "../../store/cartStore";
 import { useCustomerStore } from "../../store/customerStore";
 import { useSettingsStore } from "../../store/settingsStore";
+import { useAuthStore } from "../../store/authStore";
 import { calculateBill, formatCurrency } from "../../utils/billing";
+import { isValidUpiId } from "../../utils/upi";
 import { useTranslation } from "../../i18n";
 
 export default function BillingScreen({ navigation }) {
@@ -25,6 +27,7 @@ export default function BillingScreen({ navigation }) {
   const customers = useCustomerStore((state) => state.customers);
   const [customerId, setCustomerId] = useState(customers[0]?.id || "walk-in");
   const gstRate = useSettingsStore((state) => state.settings.gstRate);
+  const upiId = useAuthStore((state) => state.user?.upiId || "");
   const cart = useCartStore((state) => state.cart);
   const increaseQty = useCartStore((state) => state.increaseQty);
   const decreaseQty = useCartStore((state) => state.decreaseQty);
@@ -38,6 +41,21 @@ export default function BillingScreen({ navigation }) {
     const unavailable = cart.find((item) => item.quantity > Number(item.stock || 0));
     if (unavailable) {
       Alert.alert(t("Stock changed"), `${unavailable.name}: ${t("No more stock is available.")}`);
+      return;
+    }
+    if (payment !== "Cash" && !isValidUpiId(upiId)) {
+      Alert.alert(
+        t("UPI ID required"),
+        t("Add a UPI ID in Profile to generate a payment QR, or choose Cash."),
+        [
+          { text: t("Cancel"), style: "cancel" },
+          { text: t("Open Profile"), onPress: () => navigation.navigate("Main", { screen: "Profile" }) },
+        ],
+      );
+      return;
+    }
+    if (payment !== "Cash" && Number(bill.total) <= 0) {
+      Alert.alert(t("Payment QR unavailable"), t("The bill total must be greater than zero."));
       return;
     }
     navigation.navigate("Receipt", { ...bill, payment, customer: selectedCustomer });
@@ -169,7 +187,9 @@ export default function BillingScreen({ navigation }) {
             </View>
 
             <TouchableOpacity style={styles.generate} onPress={goToReceipt}>
-              <Text style={styles.generateText}>{t("Review & Generate Bill")}</Text>
+              <Text style={styles.generateText}>
+                {t(payment === "Cash" ? "Review & Generate Bill" : "Continue to payment QR")}
+              </Text>
             </TouchableOpacity>
           </>
         ) : null}

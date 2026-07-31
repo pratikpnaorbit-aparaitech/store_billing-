@@ -20,6 +20,7 @@ import { useAuthStore } from "../../store/authStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { LANGUAGE_OPTIONS, useTranslation } from "../../i18n";
 import { uploadProductImage } from "../../services/uploadApi";
+import { isValidUpiId, normalizeUpiId } from "../../utils/upi";
 
 const LANGUAGE_SHORT_LABELS = {
   en: "ENG",
@@ -56,7 +57,18 @@ function ProfileAction({ icon, title, detail, tone, onPress, badge }) {
   );
 }
 
-function Field({ label, icon, value, onChangeText, keyboardType = "default", secureTextEntry }) {
+function Field({
+  label,
+  icon,
+  value,
+  onChangeText,
+  keyboardType = "default",
+  secureTextEntry,
+  placeholder,
+  autoCapitalize,
+  autoCorrect,
+  helper,
+}) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -67,10 +79,14 @@ function Field({ label, icon, value, onChangeText, keyboardType = "default", sec
           onChangeText={onChangeText}
           keyboardType={keyboardType}
           secureTextEntry={secureTextEntry}
+          placeholder={placeholder}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
           style={styles.input}
           placeholderTextColor="#94A3B8"
         />
       </View>
+      {helper ? <Text style={styles.fieldHelper}>{helper}</Text> : null}
     </View>
   );
 }
@@ -91,6 +107,7 @@ export default function ProfileScreen({ navigation }) {
   const [storeName, setStoreName] = useState(user?.storeName || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [gstNo, setGstNo] = useState(user?.gstNo || "");
+  const [upiId, setUpiId] = useState(user?.upiId || "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [gstRate, setGstRate] = useState(String(settings.gstRate));
   const [currentPassword, setCurrentPassword] = useState("");
@@ -120,6 +137,10 @@ export default function ProfileScreen({ navigation }) {
     if (normalizedGst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizedGst)) {
       return Alert.alert(t("Invalid GST number"), t("Enter a valid 15-character GST number or leave it blank."));
     }
+    const normalizedUpi = normalizeUpiId(upiId);
+    if (normalizedUpi && !isValidUpiId(normalizedUpi)) {
+      return Alert.alert(t("Invalid UPI ID"), t("Enter a valid UPI ID or leave it blank."));
+    }
     setSaving(true);
     try {
       await Promise.all([
@@ -128,6 +149,7 @@ export default function ProfileScreen({ navigation }) {
           storeName: storeName.trim(),
           phone: normalizedPhone,
           gstNo: normalizedGst,
+          upiId: normalizedUpi,
           avatarUrl,
         }),
         updateSettings({ gstRate: rate }),
@@ -161,6 +183,7 @@ export default function ProfileScreen({ navigation }) {
         storeName: storeName.trim(),
         phone: phone.replace(/[\s()-]/g, ""),
         gstNo: gstNo.trim().toUpperCase(),
+        upiId: isValidUpiId(upiId) ? normalizeUpiId(upiId) : (user?.upiId || ""),
         avatarUrl: uploaded.url,
       });
     } catch (error) {
@@ -312,12 +335,12 @@ export default function ProfileScreen({ navigation }) {
               <View style={[styles.languageCheck, active && styles.languageCheckActive]}>
                 {active ? <Ionicons name="checkmark" size={16} color="#FFFFFF" /> : null}
               </View>
-              <View style={styles.flex}>
-                <Text style={[styles.languageNative, active && styles.languageNativeActive]}>
-                  {LANGUAGE_SHORT_LABELS[option.code]}
-                </Text>
-                <Text style={styles.languageEnglish}>{option.label}</Text>
-              </View>
+              <Text style={[styles.languageNative, active && styles.languageNativeActive]}>
+                {LANGUAGE_SHORT_LABELS[option.code]}
+              </Text>
+              <Text style={[styles.languageEnglish, active && styles.languageEnglishActive]}>
+                {option.nativeLabel}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -361,6 +384,17 @@ export default function ProfileScreen({ navigation }) {
         <Field label={t("Store name")} icon="storefront-outline" value={storeName} onChangeText={setStoreName} />
         <Field label={t("Mobile number")} icon="call-outline" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
         <Field label={`${t("GST number")} (${t("Optional")})`} icon="document-text-outline" value={gstNo} onChangeText={(value) => setGstNo(value.toUpperCase())} />
+        <Field
+          label={`${t("UPI ID")} (${t("Optional")})`}
+          icon="qr-code-outline"
+          value={upiId}
+          onChangeText={(value) => setUpiId(value.replace(/\s/g, "").toLowerCase())}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="yourstore@bank"
+          helper={t("Payment QR uses this UPI ID.")}
+        />
         <Field label={t("Default GST %")} icon="calculator-outline" value={gstRate} onChangeText={setGstRate} keyboardType="decimal-pad" />
         <View style={styles.readOnlyField}>
           <Text style={styles.label}>{t("Account email")}</Text>
@@ -462,13 +496,14 @@ const styles = StyleSheet.create({
   sectionTitle: { color: "#0F172A", fontSize: 19, fontWeight: "900", marginTop: 26, marginBottom: 12 },
   sectionSubtitle: { color: "#64748B", fontSize: 12, marginTop: -8, marginBottom: 12 },
   languageCard: { flexDirection: "row", gap: 8, padding: 9, borderRadius: 22, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0" },
-  languageOption: { flex: 1, minWidth: 0, borderRadius: 17, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E2E8F0", padding: 11, alignItems: "center" },
+  languageOption: { flex: 1, minWidth: 0, minHeight: 94, borderRadius: 17, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E2E8F0", padding: 11, alignItems: "center", justifyContent: "center" },
   languageOptionActive: { backgroundColor: "#EFF6FF", borderColor: "#93C5FD" },
-  languageCheck: { width: 24, height: 24, borderRadius: 9, borderWidth: 1, borderColor: "#CBD5E1", alignItems: "center", justifyContent: "center", marginBottom: 7 },
+  languageCheck: { position: "absolute", right: 7, top: 7, width: 24, height: 24, borderRadius: 9, borderWidth: 1, borderColor: "#CBD5E1", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   languageCheckActive: { backgroundColor: "#0A46E4", borderColor: "#0A46E4" },
-  languageNative: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
+  languageNative: { color: "#0F172A", fontSize: 18, fontWeight: "900", letterSpacing: 0.7 },
   languageNativeActive: { color: "#0A46E4" },
-  languageEnglish: { color: "#64748B", fontSize: 9, fontWeight: "700", marginTop: 3 },
+  languageEnglish: { color: "#64748B", fontSize: 11, fontWeight: "800", marginTop: 6 },
+  languageEnglishActive: { color: "#1D4ED8" },
   catalogueCard: { minHeight: 86, borderRadius: 22, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
   catalogueIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
   catalogueTitle: { color: "#0F172A", fontSize: 14, fontWeight: "900" },
@@ -486,6 +521,7 @@ const styles = StyleSheet.create({
   label: { color: "#334155", fontSize: 12, fontWeight: "900", marginBottom: 8 },
   inputWrap: { height: 56, borderRadius: 17, borderWidth: 1, borderColor: "#DCE4EF", backgroundColor: "#F8FAFC", flexDirection: "row", alignItems: "center", paddingHorizontal: 14 },
   input: { flex: 1, height: "100%", color: "#0F172A", fontSize: 14, fontWeight: "700", marginLeft: 10 },
+  fieldHelper: { color: "#64748B", fontSize: 11, fontWeight: "600", marginTop: 6, paddingHorizontal: 2 },
   readOnlyField: { marginBottom: 4 },
   readOnly: { height: 54, borderRadius: 17, backgroundColor: "#F1F5F9", paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 9 },
   readOnlyText: { color: "#64748B", fontWeight: "700", flexShrink: 1 },

@@ -12,6 +12,7 @@ const {
   revokeUserSessions,
 } = require("../services/deviceSessionService");
 const { ensureTrial, subscriptionView, trialDays } = require("../services/subscriptionService");
+const { isValidUpiId, normalizeUpiId } = require("../utils/upi");
 
 const publicUser = (user) => ({
   id: user._id,
@@ -20,6 +21,7 @@ const publicUser = (user) => ({
   email: user.email,
   phone: user.phone || "",
   gstNo: user.gstNo || "",
+  upiId: user.upiId || "",
   avatarUrl: user.avatarUrl || "",
   registeredAt: user.createdAt,
   subscription: subscriptionView(user),
@@ -157,15 +159,21 @@ exports.updateProfile = async (req, res) => {
   const storeName = String(req.body.storeName || "").trim();
   const phone = String(req.body.phone || "").replace(/[\s()-]/g, "");
   const gstNo = String(req.body.gstNo || "").trim().toUpperCase();
+  const upiId = Object.prototype.hasOwnProperty.call(req.body, "upiId")
+    ? normalizeUpiId(req.body.upiId)
+    : (req.user.upiId || "");
   const avatarUrl = String(req.body.avatarUrl || "").trim();
   if (!name || !storeName) return res.status(400).json({ success: false, message: "Name and store name are required" });
   if (!/^\+?\d{10,15}$/.test(phone)) return res.status(400).json({ success: false, message: "Enter a valid mobile number" });
   if (gstNo && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstNo)) {
     return res.status(400).json({ success: false, message: "Enter a valid 15-character GST number" });
   }
+  if (upiId && !isValidUpiId(upiId)) {
+    return res.status(400).json({ success: false, message: "Enter a valid UPI ID or leave it blank" });
+  }
   const user = await User.findByIdAndUpdate(
     req.userId,
-    { name, storeName, phone, gstNo, avatarUrl },
+    { name, storeName, phone, gstNo, upiId, avatarUrl },
     { returnDocument: "after", runValidators: true },
   );
   res.json({ success: true, data: publicUser(user) });

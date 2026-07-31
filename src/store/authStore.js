@@ -95,6 +95,7 @@ export const useAuthStore = create((set, get) => ({
       email: payload.email,
       phone: payload.phone,
       gstNo: "",
+      upiId: "",
       avatarUrl: "",
       storeName: payload.storeName,
     };

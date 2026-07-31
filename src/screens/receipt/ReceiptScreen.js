@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import QRCode from "react-native-qrcode-svg";
 import dayjs from "dayjs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCartStore } from "../../store/cartStore";
@@ -14,6 +15,7 @@ import { hasRemoteApi } from "../../services/api";
 import { useAuthStore } from "../../store/authStore";
 import { useTranslation } from "../../i18n";
 import { notifyLowStock } from "../../services/notifications";
+import { buildUpiPaymentUri, isValidUpiId } from "../../utils/upi";
 
 export default function ReceiptScreen({ navigation, route }) {
   const { language, t } = useTranslation();
@@ -25,6 +27,7 @@ export default function ReceiptScreen({ navigation, route }) {
   const updateCustomerStats = useCustomerStore((state) => state.updateCustomerStats);
   const user = useAuthStore((state) => state.user);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const [busy, setBusy] = useState(false);
   const [liveInvoiceNo] = useState(() => createInvoiceNo());
   const [liveCreatedAt] = useState(() => new Date().toISOString());
@@ -88,6 +91,22 @@ export default function ReceiptScreen({ navigation, route }) {
       customer: { id: "walk-in", name: "Walk-in Customer" },
       ...(route?.params || {}),
     };
+  const showPaymentQr = Boolean(
+    !isHistory
+    && data
+    && ["UPI", "Card"].includes(data.payment)
+    && isValidUpiId(user?.upiId)
+    && Number(data.total) > 0,
+  );
+  const paymentQrValue = showPaymentQr
+    ? buildUpiPaymentUri({
+      upiId: user.upiId,
+      payeeName: data.storeName,
+      amount: data.total,
+      transactionRef: data.invoiceNo,
+    })
+    : "";
+  const qrSize = Math.min(260, Math.max(180, width - 88));
 
   const sharePDF = async () => {
     try {
@@ -200,6 +219,49 @@ export default function ReceiptScreen({ navigation, route }) {
           <Text style={styles.thanks}>{t("Thank you")} ❤️</Text>
         </View>
 
+        {showPaymentQr ? (
+          <View style={styles.paymentQrCard}>
+            <View style={styles.paymentQrHeading}>
+              <View style={styles.paymentQrIcon}>
+                <Ionicons name="qr-code" size={25} color="#0A46E4" />
+              </View>
+              <View style={styles.flex}>
+                <Text style={styles.paymentQrEyebrow}>{t("PAYMENT QR")}</Text>
+                <Text style={styles.paymentQrTitle}>{t("Scan to pay exact bill amount")}</Text>
+              </View>
+            </View>
+
+            <View style={styles.paymentAmountPill}>
+              <Text style={styles.paymentAmountLabel}>{t("Exact bill amount")}</Text>
+              <Text selectable style={styles.paymentAmount}>{formatCurrency(data.total)}</Text>
+            </View>
+
+            <View style={styles.qrSurface}>
+              <QRCode
+                value={paymentQrValue}
+                size={qrSize}
+                ecl="M"
+                quietZone={10}
+                color="#0F172A"
+                backgroundColor="#FFFFFF"
+              />
+            </View>
+            <Text style={styles.scanText}>{t("Scan with any UPI app")}</Text>
+            <Text selectable style={styles.upiId}>{user.upiId}</Text>
+            {data.payment === "Card" ? (
+              <Text style={styles.paymentHelp}>
+                {t("For Card, choose an eligible linked card in the UPI app.")}
+              </Text>
+            ) : null}
+            <View style={styles.confirmNotice}>
+              <Ionicons name="alert-circle-outline" size={19} color="#92400E" />
+              <Text style={styles.confirmNoticeText}>
+                {t("Confirm that payment was received before completing the sale.")}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <TouchableOpacity style={styles.primary} onPress={sharePDF}>
           <Ionicons name="share-outline" size={20} color="#FFF" />
           <Text style={styles.primaryText}>{t("Share PDF Receipt")}</Text>
@@ -284,6 +346,28 @@ const styles = StyleSheet.create({
   totalLabel: { color: "#FFF", fontWeight: "900", fontSize: 16 },
   totalValue: { color: "#FFF", fontWeight: "900", fontSize: 20 },
   thanks: { textAlign: "center", marginTop: 18, color: "#64748B", fontWeight: "800" },
+  paymentQrCard: {
+    marginTop: 18,
+    borderRadius: 26,
+    padding: 18,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    alignItems: "center",
+  },
+  paymentQrHeading: { width: "100%", flexDirection: "row", alignItems: "center", gap: 12 },
+  paymentQrIcon: { width: 50, height: 50, borderRadius: 18, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center" },
+  paymentQrEyebrow: { color: "#0A46E4", fontSize: 10, fontWeight: "900", letterSpacing: 1.3 },
+  paymentQrTitle: { color: "#0F172A", fontSize: 17, fontWeight: "900", marginTop: 3 },
+  paymentAmountPill: { width: "100%", borderRadius: 18, backgroundColor: "#0F172A", padding: 14, marginTop: 17, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  paymentAmountLabel: { color: "#CBD5E1", fontSize: 12, fontWeight: "800" },
+  paymentAmount: { color: "#FFFFFF", fontSize: 22, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  qrSurface: { marginTop: 18, padding: 7, borderRadius: 18, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0" },
+  scanText: { color: "#0F172A", fontSize: 15, fontWeight: "900", marginTop: 14 },
+  upiId: { color: "#0A46E4", fontSize: 13, fontWeight: "800", marginTop: 5 },
+  paymentHelp: { color: "#64748B", fontSize: 11, lineHeight: 17, fontWeight: "600", textAlign: "center", marginTop: 8, paddingHorizontal: 6 },
+  confirmNotice: { width: "100%", borderRadius: 16, backgroundColor: "#FFFBEB", borderWidth: 1, borderColor: "#FDE68A", padding: 12, marginTop: 16, flexDirection: "row", alignItems: "center", gap: 9 },
+  confirmNoticeText: { color: "#92400E", fontSize: 11, lineHeight: 17, fontWeight: "700", flex: 1 },
   primary: {
     marginTop: 18,
     height: 56,

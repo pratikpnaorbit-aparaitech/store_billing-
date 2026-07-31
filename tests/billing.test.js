@@ -4,6 +4,7 @@ import { addCartItem, calculateBill, createInvoiceNo, getDailySalesInsights, get
 import { createManualBarcode, isManualBarcode } from "../src/utils/products.js";
 import { buildThermalReceipt } from "../src/utils/printer/thermalReceipt.js";
 import { visibleProducts } from "../src/utils/catalogue.js";
+import { buildUpiPaymentUri, isValidUpiId, normalizeUpiId } from "../src/utils/upi.js";
 
 test("calculates subtotal, GST, discount and total with money rounding", () => {
   assert.deepEqual(calculateBill([{ price: 19.99, quantity: 3 }, { price: 10, quantity: 1 }], 5, 5), {
@@ -125,4 +126,21 @@ test("prints the registered store name on thermal receipts", () => {
   });
   assert.match(receipt, /^VIVEK SUPER MART/);
   assert.doesNotMatch(receipt, /^SMART BILLING/);
+});
+
+test("builds an exact-amount UPI payment QR value", () => {
+  assert.equal(normalizeUpiId(" Store.Pay@OKSBI "), "store.pay@oksbi");
+  assert.equal(isValidUpiId("store.pay@oksbi"), true);
+  assert.equal(isValidUpiId("invalid"), false);
+
+  const uri = buildUpiPaymentUri({
+    upiId: "store.pay@oksbi",
+    payeeName: "Vivek Super Mart",
+    amount: 123.4,
+    transactionRef: "INV-20260731-001",
+  });
+  assert.equal(
+    uri,
+    "upi://pay?pa=store.pay%40oksbi&pn=Vivek%20Super%20Mart&tr=INV20260731001&tn=Bill%20INV-20260731-001&am=123.40&cu=INR",
+  );
 });
