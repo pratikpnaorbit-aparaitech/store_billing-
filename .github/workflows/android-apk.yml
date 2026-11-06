@@ -20,7 +20,9 @@ concurrency:
 
 jobs:
   build-apk:
-    runs-on: ubuntu-latest
+    # Pin the runner because ubuntu-latest is migrating to Ubuntu 26, where
+    # the Android SDK setup action currently fails before the APK build starts.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       CI: "1"
