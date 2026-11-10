@@ -433,6 +433,8 @@ export default function ProfileScreen({ navigation }) {
         </View>
       ) : null}
 
+      <TouchableOpacity style={styles.save} onPress={() => navigation.navigate("PrinterSettings")}><Ionicons name="print-outline" size={20} color="#FFF" /><Text style={styles.saveText}>{t("Receipt printers")}</Text></TouchableOpacity>
+
       <TouchableOpacity style={styles.logout} onPress={() => setShowLogout(true)}>
         <Ionicons name="log-out-outline" size={20} color="#DC2626" />
         <Text style={styles.logoutText}>{t("Log out from this phone")}</Text>

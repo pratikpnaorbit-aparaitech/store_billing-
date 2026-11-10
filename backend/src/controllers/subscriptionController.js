@@ -1,3 +1,4 @@
+const paymentError = require("../services/paymentError");
 const crypto = require("crypto");
 const CheckoutSession = require("../models/CheckoutSession");
 const User = require("../models/User");
@@ -235,11 +236,8 @@ exports.createCheckoutSession = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(error.status || 502).json({
-      success: false,
-      code: error.code || "CHECKOUT_UNAVAILABLE",
-      message: error.error?.description || error.message || "Could not start Razorpay checkout",
-    });
+    const failure = paymentError(error);
+    return res.status(failure.status).json({ success: false, code: failure.code, message: failure.message });
   }
 };
 

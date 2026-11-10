@@ -3,9 +3,11 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { useTranslation } from "../../i18n";
+import useKeyboardForm from "../../hooks/useKeyboardForm";
 
 export default function SignUpScreen({ navigation }) {
   const { t } = useTranslation();
+  const { scrollRef, revealFocusedInput } = useKeyboardForm();
   const cloudMode = useAuthStore((state) => state.cloudMode);
   const requestRegistration = useAuthStore((state) => state.requestRegistration);
   const verifyRegistration = useAuthStore((state) => state.verifyRegistration);
@@ -54,8 +56,8 @@ export default function SignUpScreen({ navigation }) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined} style={styles.screen}>
+      <ScrollView ref={scrollRef} onLayout={revealFocusedInput} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.header}>
           <TouchableOpacity onPress={() => step === "verify" ? setStep("details") : navigation.goBack()} style={styles.back}>
             <Ionicons name="arrow-back" size={22} color="#0F172A" />
@@ -66,7 +68,7 @@ export default function SignUpScreen({ navigation }) {
         {step === "details" ? (
           <>
             {[["Your name", "name", "default"], ["Store name", "storeName", "default"], ["Email", "email", "email-address"], ["Mobile number", "phone", "phone-pad"], ["Password", "password", "default"], ["Confirm password", "confirm", "default"]].map(([label, key, keyboard]) => (
-              <View key={key}><Text style={styles.label}>{t(label)}</Text><TextInput value={form[key]} onChangeText={(value) => setField(key, value)} keyboardType={keyboard} autoCapitalize={key === "email" ? "none" : "words"} secureTextEntry={key === "password" || key === "confirm"} style={styles.input} placeholder={t(label)} /></View>
+              <View key={key}><Text style={styles.label}>{t(label)}</Text><TextInput onFocus={revealFocusedInput} value={form[key]} onChangeText={(value) => setField(key, value)} keyboardType={keyboard} autoCapitalize={["name", "storeName"].includes(key) ? "words" : "none"} autoCorrect={false} secureTextEntry={key === "password" || key === "confirm"} style={styles.input} placeholder={t(label)} /></View>
             ))}
             {formError ? <View style={styles.errorBox}><Ionicons name={accountExists ? "person-circle-outline" : "alert-circle-outline"} size={24} color="#B91C1C" /><View style={styles.errorContent}><Text style={styles.errorTitle}>{t(accountExists ? "Account already exists" : "Registration could not continue")}</Text><Text style={styles.errorText}>{formError}</Text></View></View> : null}
             {accountExists ? <View style={styles.existingActions}><TouchableOpacity style={styles.loginButton} onPress={() => navigation.replace("Login", { email: form.email.trim().toLowerCase() })}><Text style={styles.loginButtonText}>{t("GO TO LOGIN")}</Text></TouchableOpacity><TouchableOpacity style={styles.resetButton} onPress={() => navigation.navigate("ForgotPassword", { email: form.email.trim().toLowerCase() })}><Text style={styles.resetButtonText}>{t("RESET PASSWORD")}</Text></TouchableOpacity></View> : null}
@@ -76,7 +78,7 @@ export default function SignUpScreen({ navigation }) {
           <>
             <View style={styles.notice}><Ionicons name="mail-unread-outline" size={28} color="#0A46E4" /><Text style={styles.noticeText}>{t("Enter the 6 digit verification code. It expires in 15 minutes.")}</Text></View>
             <Text style={styles.label}>{t("Verification code")}</Text>
-            <TextInput value={code} onChangeText={(value) => setCode(value.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} style={[styles.input, styles.code]} placeholder="000000" />
+            <TextInput onFocus={revealFocusedInput} value={code} onChangeText={(value) => setCode(value.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} style={[styles.input, styles.code]} placeholder="000000" />
             <TouchableOpacity style={styles.button} onPress={verifyCode} disabled={busy}><Text style={styles.buttonText}>{t(busy ? "VERIFYING..." : "VERIFY & CREATE ACCOUNT")}</Text></TouchableOpacity>
             <TouchableOpacity onPress={sendCode} disabled={busy}><Text style={styles.link}>{t("Resend verification code")}</Text></TouchableOpacity>
             <TouchableOpacity onPress={() => setStep("details")} disabled={busy}><Text style={styles.mutedLink}>{t("Change email or details")}</Text></TouchableOpacity>

@@ -3,9 +3,11 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, Te
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../store/authStore";
 import { useTranslation } from "../../i18n";
+import useKeyboardForm from "../../hooks/useKeyboardForm";
 
 export default function ForgotPasswordScreen({ navigation, route }) {
   const { t } = useTranslation();
+  const { scrollRef, revealFocusedInput } = useKeyboardForm();
   const cloudMode = useAuthStore((state) => state.cloudMode);
   const requestPasswordReset = useAuthStore((state) => state.requestPasswordReset);
   const completePasswordReset = useAuthStore((state) => state.completePasswordReset);
@@ -43,8 +45,8 @@ export default function ForgotPasswordScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined} style={styles.screen}>
+      <ScrollView ref={scrollRef} onLayout={revealFocusedInput} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <TouchableOpacity onPress={() => step === "reset" ? setStep("request") : navigation.goBack()} style={styles.back}><Ionicons name="arrow-back" size={22} color="#0F172A" /></TouchableOpacity>
         {step === "success" ? (
           <View style={styles.successBox}>
@@ -58,14 +60,14 @@ export default function ForgotPasswordScreen({ navigation, route }) {
             <Text style={styles.title}>{step === "request" ? t("Reset password") : t("Enter reset code")}</Text>
             <Text style={styles.subtitle}>{step === "request" ? t("We will email a secure 6 digit code to your ServiceHub account.") : t("Code sent to {{email}}. It expires in 15 minutes.", { email: email.trim().toLowerCase() })}</Text>
             <Text style={styles.label}>{t("Email")}</Text>
-            <TextInput value={email} onChangeText={setEmail} editable={step === "request"} autoCapitalize="none" keyboardType="email-address" style={[styles.input, step !== "request" && styles.disabled]} placeholder="you@example.com" />
+            <TextInput onFocus={revealFocusedInput} value={email} onChangeText={setEmail} editable={step === "request"} autoCapitalize="none" keyboardType="email-address" style={[styles.input, step !== "request" && styles.disabled]} placeholder="you@example.com" />
             {step === "reset" || !cloudMode ? (
               <>
-                {cloudMode ? <><Text style={styles.label}>{t("6 digit reset code")}</Text><TextInput value={code} onChangeText={(value) => setCode(value.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} style={[styles.input, styles.code]} placeholder="000000" /></> : null}
+                {cloudMode ? <><Text style={styles.label}>{t("6 digit reset code")}</Text><TextInput onFocus={revealFocusedInput} value={code} onChangeText={(value) => setCode(value.replace(/\D/g, ""))} keyboardType="number-pad" maxLength={6} style={[styles.input, styles.code]} placeholder="000000" /></> : null}
                 <Text style={styles.label}>{t("New password")}</Text>
-                <TextInput value={password} onChangeText={setPassword} secureTextEntry style={styles.input} placeholder={t("Minimum 8 characters")} />
+                <TextInput onFocus={revealFocusedInput} value={password} onChangeText={setPassword} secureTextEntry style={styles.input} placeholder={t("Minimum 8 characters")} />
                 <Text style={styles.label}>{t("Confirm new password")}</Text>
-                <TextInput value={confirm} onChangeText={setConfirm} secureTextEntry style={styles.input} placeholder={t("Re-enter new password")} />
+                <TextInput onFocus={revealFocusedInput} value={confirm} onChangeText={setConfirm} secureTextEntry style={styles.input} placeholder={t("Re-enter new password")} />
               </>
             ) : null}
             <TouchableOpacity style={styles.button} onPress={step === "request" && cloudMode ? sendCode : updatePassword} disabled={busy}><Text style={styles.buttonText}>{t(busy ? "PLEASE WAIT..." : step === "request" && cloudMode ? "SEND RESET CODE" : "UPDATE PASSWORD")}</Text></TouchableOpacity>

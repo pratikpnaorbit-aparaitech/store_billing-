@@ -17,6 +17,9 @@ import { useTranslation } from "../../i18n";
 import { notifyLowStock } from "../../services/notifications";
 import { buildUpiPaymentUri, isValidUpiId } from "../../utils/upi";
 
+import { usePrinterStore } from "../../store/printerStore";
+import { printThermalReceipt } from "../../services/thermalPrinter";
+
 export default function ReceiptScreen({ navigation, route }) {
   const { language, t } = useTranslation();
   const liveCart = useCartStore((state) => state.cart);
@@ -28,6 +31,11 @@ export default function ReceiptScreen({ navigation, route }) {
   const user = useAuthStore((state) => state.user);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const printers = usePrinterStore((state) => state.printers);
+  const selectedId = usePrinterStore((state) => state.selectedId);
+  const selectedPrinter = printers.find((printer) => printer.id === selectedId);
+  const [printing, setPrinting] = useState(false);
+  const [printMessage, setPrintMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [liveInvoiceNo] = useState(() => createInvoiceNo());
   const [liveCreatedAt] = useState(() => new Date().toISOString());
@@ -116,6 +124,17 @@ export default function ReceiptScreen({ navigation, route }) {
     }
   };
   const previewThermalReceipt = () => Alert.alert(t("Thermal Receipt Preview"), buildThermalReceipt({ ...data, labels }));
+
+  const printReceipt = async () => {
+    if (printing) return;
+    if (!selectedPrinter) { navigation.navigate("PrinterSettings"); return; }
+    setPrinting(true); setPrintMessage("");
+    try {
+      await printThermalReceipt(data, selectedPrinter);
+      setPrintMessage(selectedPrinter.type === "system" ? "Print dialog opened. Choose your printer to finish." : "Receipt sent to printer. Check the paper output.");
+    } catch (error) { setPrintMessage(error.message || "Print failed. Check printer connection and paper, then retry."); }
+    finally { setPrinting(false); }
+  };
 
   const finishSale = async () => {
     if (isHistory || busy || !liveCart.length) return;
@@ -262,6 +281,9 @@ export default function ReceiptScreen({ navigation, route }) {
           </View>
         ) : null}
 
+        <TouchableOpacity style={styles.primary} onPress={printReceipt} disabled={printing}><Ionicons name="print-outline" size={20} color="#FFF" /><Text style={styles.primaryText}>{printing ? "Sending receipt..." : "Print thermal receipt"}</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.secondary} onPress={() => navigation.navigate("PrinterSettings")}><Text style={styles.secondaryText}>{selectedPrinter ? selectedPrinter.name + " ? Change printer" : "Add / select printer"}</Text></TouchableOpacity>
+        {printMessage ? <Text accessibilityLiveRegion="polite" style={{ padding: 14, color: "#334155", lineHeight: 20 }}>{printMessage}</Text> : null}
         <TouchableOpacity style={styles.primary} onPress={sharePDF}>
           <Ionicons name="share-outline" size={20} color="#FFF" />
           <Text style={styles.primaryText}>{t("Share PDF Receipt")}</Text>

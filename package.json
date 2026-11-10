@@ -38,6 +38,7 @@
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
+    "react-native-thermal-printer": "2.3.6",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.10.1",
     "yup": "^1.7.1",
@@ -53,7 +54,8 @@
     "doctor": "npx expo-doctor",
     "lint": "eslint App.js index.js src tests",
     "test": "node --test tests/*.test.js",
-    "check": "npm run lint && npm run doctor && npm test && npm run export:web"
+    "check": "npm run lint && npm run doctor && npm test && npm run export:web",
+    "postinstall": "node scripts/prepare-thermal-printer.mjs"
   },
   "private": true,
   "expo": {

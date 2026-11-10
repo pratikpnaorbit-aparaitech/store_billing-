@@ -120,8 +120,12 @@ export default function SubscriptionScreen({ navigation, route }) {
           razorpay_signature: payment.razorpay_signature,
         });
       }
-      await refreshSubscription();
-      if (navigation?.canGoBack?.()) navigation.goBack();
+      const updated = await refreshSubscription();
+      if (updated?.accessAllowed) {
+        if (navigation?.canGoBack?.()) navigation.goBack();
+      } else {
+        setMessage("Complete the Razorpay payment, then tap Refresh payment status to confirm access.");
+      }
     } catch (error) {
       setMessage(error.description || error.message || t("Could not open Razorpay checkout."));
     } finally {

@@ -109,3 +109,23 @@ npm test
 npm run lint
 npm run build
 ```
+
+## Diagnose Razorpay authentication failures
+
+From `backend`, run `npm run payment:check`. This makes a read-only Razorpay
+request; it does not create a subscription or charge a customer.
+
+A `401 Authentication failed` means Razorpay rejected the configured API key
+pair. Configure a matching, active `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
+from the same Razorpay account and mode. Update the Render service environment
+as well as the local `backend/.env`, then restart/redeploy the backend. Editing
+local files does not change the backend at `EXPO_PUBLIC_API_URL`.
+
+Checkout prices come from the active 1-, 3- and 6-month database plan catalogue.
+Changing `SUBSCRIPTION_AMOUNT_PAISE` alone does not change those catalogue prices.
+The webhook secret is separate from the API key secret.
+
+After credentials pass the check, verify checkout, server signature verification,
+webhook delivery and subscription refresh using Razorpay Test Mode before a live
+payment. The keyboard layout configuration in `app.json` requires a new native
+build for an already installed app.

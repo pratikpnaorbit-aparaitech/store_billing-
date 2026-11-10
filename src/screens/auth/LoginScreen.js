@@ -1,12 +1,14 @@
 import React, { useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuthStore } from "../../store/authStore";
 import { useTranslation } from "../../i18n";
+import useKeyboardForm from "../../hooks/useKeyboardForm";
 
 export default function LoginScreen({ navigation, route }) {
   const { t } = useTranslation();
+  const { scrollRef, revealFocusedInput } = useKeyboardForm();
   const login = useAuthStore((state) => state.login);
   const [email, setEmail] = useState(route?.params?.email || "");
   const [password, setPassword] = useState("");
@@ -32,7 +34,8 @@ export default function LoginScreen({ navigation, route }) {
 
   return (
     <LinearGradient colors={["#F8FAFC", "#EEF4FF"]} style={styles.screen}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined} style={styles.screen}>
+        <ScrollView ref={scrollRef} onLayout={revealFocusedInput} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         <View style={styles.brandBox}>
           <View style={styles.logoBox}><Image source={require("../../assets/images/logo.png")} style={styles.logo} resizeMode="contain" /></View>
           <Text style={styles.title}>{t("Welcome Back")}</Text>
@@ -40,20 +43,21 @@ export default function LoginScreen({ navigation, route }) {
         </View>
         <View style={styles.card}>
           <Text style={styles.label}>{t("Email Address")}</Text>
-          <View style={styles.inputBox}><Ionicons name="mail-outline" size={20} color="#64748B" /><TextInput value={email} onChangeText={setEmail} placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" style={styles.input} /></View>
+          <View style={styles.inputBox}><Ionicons name="mail-outline" size={20} color="#64748B" /><TextInput onFocus={revealFocusedInput} value={email} onChangeText={setEmail} placeholder="you@example.com" autoCapitalize="none" keyboardType="email-address" style={styles.input} /></View>
           <Text style={styles.label}>{t("Password")}</Text>
-          <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color="#64748B" /><TextInput value={password} onChangeText={setPassword} placeholder={t("Password")} secureTextEntry={!showPassword} style={styles.input} /><TouchableOpacity onPress={() => setShowPassword((value) => !value)}><Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" /></TouchableOpacity></View>
+          <View style={styles.inputBox}><Ionicons name="lock-closed-outline" size={20} color="#64748B" /><TextInput onFocus={revealFocusedInput} value={password} onChangeText={setPassword} placeholder={t("Password")} secureTextEntry={!showPassword} style={styles.input} /><TouchableOpacity onPress={() => setShowPassword((value) => !value)}><Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#64748B" /></TouchableOpacity></View>
           <TouchableOpacity style={styles.forgot} onPress={() => navigation.navigate("ForgotPassword")}><Text style={styles.link}>{t("Forgot Password?")}</Text></TouchableOpacity>
           <TouchableOpacity activeOpacity={0.88} onPress={submit} disabled={busy}><LinearGradient colors={["#0A46E4", "#0732A3"]} style={styles.button}><Text style={styles.buttonText}>{busy ? t("PLEASE WAIT...") : t("LOGIN")}</Text></LinearGradient></TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate("SignUp")}><Text style={styles.createText}>{t("Create new account")}</Text></TouchableOpacity>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 }, container: { flex: 1, padding: 24, justifyContent: "center" }, brandBox: { alignItems: "center", marginBottom: 28 },
+  screen: { flex: 1 }, container: { flexGrow: 1, padding: 24, justifyContent: "center" }, brandBox: { alignItems: "center", marginBottom: 28 },
   logoBox: { width: 82, height: 82, borderRadius: 24, backgroundColor: "#FFF", alignItems: "center", justifyContent: "center", marginBottom: 16, elevation: 6 }, logo: { width: 58, height: 58 },
   title: { fontSize: 31, fontWeight: "900", color: "#0F172A" }, subtitle: { marginTop: 8, color: "#64748B", textAlign: "center" },
   card: { backgroundColor: "#FFF", borderRadius: 28, padding: 22, borderWidth: 1, borderColor: "#E2E8F0", elevation: 7 }, label: { fontSize: 13, fontWeight: "800", color: "#0F172A", marginBottom: 8 },

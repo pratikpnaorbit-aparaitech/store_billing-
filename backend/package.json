@@ -11,7 +11,8 @@
     "dev": "nodemon server.js",
     "catalogue:refresh": "node scripts/buildCatalogue.js",
     "test": "node --test tests/*.test.js",
-    "test:live": "node scripts/liveSmoke.js"
+    "test:live": "node scripts/liveSmoke.js",
+    "payment:check": "node scripts/checkPaymentConfig.js"
   },
   "keywords": [],
   "author": "",
