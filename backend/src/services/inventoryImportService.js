@@ -1,3 +1,4 @@
+const { numericValue, measurement, normalizeInventoryRow, alignInventoryRow } = require("./inventoryValues");
 const path = require("node:path");
 const os = require("node:os");
 const { parse } = require("csv-parse/sync");
@@ -10,12 +11,14 @@ const MAX_ROWS = 150;
 const MAX_PDF_PAGES = 8;
 const OCR_CACHE_PATH = path.join(os.tmpdir(), "smart-billing-ocr");
 const OCR_LANGUAGE = {
-  en: ["eng"],
-  hi: ["hin", "eng"],
-  mr: ["mar", "eng"],
+  en: ["eng", "hin", "mar"],
+  hi: ["eng", "hin", "mar"],
+  mr: ["eng", "hin", "mar"],
 };
 
 const HEADER_ALIASES = {
+  amount: ["amount", "line total", "total amount", "रक्कम", "रकम", "राशि"],
+  unit: ["unit", "uom", "एकक", "इकाई"],
   barcode: [
     "barcode", "bar code", "ean", "upc", "code", "product code",
     "बारकोड", "कोड",
@@ -37,7 +40,7 @@ const HEADER_ALIASES = {
   ],
 };
 
-const IGNORE_LINE = /\b(invoice|bill\s*no|date|gst|tax|subtotal|grand\s*total|total|amount|customer|supplier|mobile|phone|address|signature|thank)\b|(?:चालान|बिल\s*नंबर|दिनांक|कर|कुल|राशि|ग्राहक|पता|धन्यवाद)|(?:पावती|बिल\s*क्रमांक|दिनांक|कर|एकूण|रक्कम|ग्राहक|पत्ता|धन्यवाद)/i;
+const IGNORE_LINE = /^(?:invoice\b|bill\s*(?:no|number)\b|date\b|gst\b|tax\b|subtotal\b|grand\s*total\b|total\b|amount\b|customer\b|supplier\b|mobile\b|phone\b|address\b|signature\b|thank\b|(?:बिल|दिनांक|एकूण|एकुण|कुल|रक्कम|राशि|ग्राहक|पत्ता|पता|धन्यवाद)(?:\s|:|\/|$))/i;
 const DEVANAGARI_DIGITS = "०१२३४५६७८९";
 
 function asciiDigits(value) {
@@ -55,25 +58,16 @@ function normalizeText(value) {
   return cleanCell(value)
     .normalize("NFKD")
     .toLocaleLowerCase("en-IN")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function positiveInteger(value) {
-  const number = Number(asciiDigits(value).replace(/[^\d.-]/g, ""));
-  return Number.isInteger(number) && number > 0 ? number : null;
-}
-
-function nonNegativeMoney(value) {
-  const number = Number(asciiDigits(value).replace(/[^\d.-]/g, ""));
-  return Number.isFinite(number) && number >= 0 ? number : null;
-}
 
 function headerKey(value) {
   const normalized = normalizeText(value);
   return Object.entries(HEADER_ALIASES)
-    .find(([, aliases]) => aliases.some((alias) => normalizeText(alias) === normalized))?.[0] || null;
+    .find(([, aliases]) => aliases.some((alias) => normalizeText(alias) === normalized || String(value).split(/[\/|]/).some((part) => normalizeText(part) === normalizeText(alias))))?.[0] || null;
 }
 
 function findHeader(rows) {
@@ -94,25 +88,22 @@ function tableRows(rows) {
   const header = findHeader(rows);
   if (!header) return [];
   const candidates = [];
-  for (const row of rows.slice(header.rowIndex + 1)) {
-    const name = cleanCell(row[header.columns.name]);
-    const quantity = positiveInteger(row[header.columns.quantity]);
-    if (!name || !quantity || IGNORE_LINE.test(name)) continue;
-    const barcode = header.columns.barcode === undefined
-      ? ""
-      : cleanCell(row[header.columns.barcode]).replace(/\D/g, "");
-    const price = header.columns.price === undefined
-      ? null
-      : nonNegativeMoney(row[header.columns.price]);
-    candidates.push({
-      rawText: row.map(cleanCell).filter(Boolean).join(" | "),
-      name,
-      quantity,
-      barcode: /^\d{8,14}$/.test(barcode) ? barcode : "",
-      price,
-      confidence: 1,
-      warning: "",
+  for (const cells of rows.slice(header.rowIndex + 1)) {
+    const name = cleanCell(cells[header.columns.name]);
+    const quantityText = cleanCell(cells[header.columns.quantity]);
+    if (!name || IGNORE_LINE.test(name)) continue;
+    const quantityUnit = header.columns.unit === undefined
+      ? quantityText.replace(/^[\d.,\s]+/, "").trim() || "pcs"
+      : cleanCell(cells[header.columns.unit]) || "pcs";
+    const barcode = header.columns.barcode === undefined ? "" : cleanCell(cells[header.columns.barcode]).replace(/\D/g, "");
+    const row = normalizeInventoryRow({
+      name, quantity: numericValue(quantityText), quantityUnit, unit: "1 pc",
+      price: header.columns.price === undefined ? null : numericValue(cells[header.columns.price]),
+      lineTotal: header.columns.amount === undefined ? null : numericValue(cells[header.columns.amount]),
+      rawText: cells.map(cleanCell).filter(Boolean).join(" | "),
+      barcode: /^\d{8,14}$/.test(barcode) ? barcode : "", confidence: 1, warning: "",
     });
+    if (row) candidates.push(row);
     if (candidates.length >= MAX_ROWS) break;
   }
   return candidates;
@@ -122,32 +113,24 @@ function freeTextRow(line) {
   const rawText = cleanCell(line);
   if (!rawText || rawText.length < 2 || IGNORE_LINE.test(rawText)) return null;
   const barcodeMatch = rawText.match(/(?:^|\D)(\d{8,14})(?:\D|$)/);
-  const explicitQuantity = rawText.match(
-    /(?:qty|quantity|qnty|stock|pcs?|pieces?|nos?|units?|नग|संख्या|मात्रा|प्रमाण|साठा)\s*[:=\-x×]?\s*(\d{1,5})/i,
-  ) || rawText.match(/\b(\d{1,5})\s*(?:pcs?|pieces?|nos?|units?|नग)\b/i);
-  const multiplicationQuantity = rawText.match(/\b(?:x|×)\s*(\d{1,5})\b/i);
-  const quantity = positiveInteger(explicitQuantity?.[1] || multiplicationQuantity?.[1]) || 1;
-  let name = rawText
-    .replace(barcodeMatch?.[1] || /$^/, " ")
-    .replace(explicitQuantity?.[0] || /$^/, " ")
-    .replace(multiplicationQuantity?.[0] || /$^/, " ")
-    .replace(/[₹$]\s*\d+(?:\.\d{1,2})?/g, " ")
-    .replace(/\s+\d+(?:\.\d{1,2})?\s*$/, " ")
-    .replace(/^[\d.)\-\s]+/, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const body = rawText.replace(barcodeMatch?.[1] || /$^/, " ");
+  const prepared = body
+    .replace(/(?:unit\s*price|quantity|qty|qnty|stock|rate|price|mrp|amount|प्रमाण|मात्रा|संख्या|साठा|किंमत|कीमत|दर|रक्कम|रकम|राशि)\s*[:=]?/gi, " ")
+    .replace(/[₹$]/g, " ").replace(/\s+/g, " ").trim();
+  const numeric = prepared.match(/^(?:\d{1,3}[.)]\s*)?(.+?)\s+(\d+(?:\.\d+)?)\s*(pcs?|pieces?|nos?|units?|kgs?|grams?|gms?|gm|g|ltrs?|ltr|l|ml|नग|किलो|ग्रॅम|ग्राम|लिटर|लीटर)?\s+(\d[\d,]*(?:\.\d+)?)(?:\s+(\d[\d,]*(?:\.\d+)?))?$/i);
+  if (numeric && /\p{L}/u.test(numeric[1])) return normalizeInventoryRow({
+    rawText, name: numeric[1], quantity: numericValue(numeric[2]), quantityUnit: numeric[3] || "pcs", unit: "1 pc",
+    price: numericValue(numeric[4]), lineTotal: numericValue(numeric[5]), barcode: barcodeMatch?.[1] || "", confidence: 0.85, warning: "",
+  });
+  const explicitQuantity = body.match(/(?:qty|quantity|qnty|stock|pcs?|pieces?|nos?|units?|नग|संख्या|मात्रा|प्रमाण|साठा)\s*[:=\-x×]?\s*(\d+(?:\.\d+)?)/i)
+    || body.match(/(\d+(?:\.\d+)?)\s*(?:pcs?|pieces?|nos?|units?|नग)\b/i);
+  const multiplicationQuantity = body.match(/(?:x|×)\s*(\d+(?:\.\d+)?)/i);
+  const name = body.replace(explicitQuantity?.[0] || /$^/, " ").replace(multiplicationQuantity?.[0] || /$^/, " ").replace(/^[\d.)\-\s]+/, "").replace(/\s+/g, " ").trim();
   if (name.length < 2 || !/\p{L}/u.test(name)) return null;
-  return {
-    rawText,
-    name,
-    quantity,
-    barcode: barcodeMatch?.[1] || "",
-    price: null,
-    confidence: explicitQuantity || multiplicationQuantity ? 0.78 : 0.52,
-    warning: explicitQuantity || multiplicationQuantity
-      ? ""
-      : "Quantity was not clear; please verify the default quantity.",
-  };
+  return normalizeInventoryRow({ rawText, name, quantity: numericValue(explicitQuantity?.[1] || multiplicationQuantity?.[1]) || 1, quantityUnit: "pcs", unit: "1 pc", price: null,
+    barcode: barcodeMatch?.[1] || "", confidence: explicitQuantity || multiplicationQuantity ? 0.78 : 0.52,
+    warning: explicitQuantity || multiplicationQuantity ? "" : "Quantity was not clear; please verify the default quantity.",
+  });
 }
 
 function freeTextRows(text) {
@@ -225,44 +208,39 @@ function tokenScore(left, right) {
 
 function matchCandidates(candidates, products) {
   const barcodeMap = new Map(products.map((product) => [String(product.barcode || ""), product]));
-  const searchable = products.map((product) => ({
-    product,
-    normalized: normalizeText(`${product.brand || ""} ${product.name || ""}`),
-  }));
   return candidates.map((candidate, index) => {
+    const variants = [candidate.name, candidate.searchName, ...String(candidate.name).matchAll(/\(([^)]+)\)/g)].map((value) => normalizeText(Array.isArray(value) ? value[1] : value)).filter(Boolean);
     let product = candidate.barcode ? barcodeMap.get(candidate.barcode) : null;
     let score = product ? 1 : 0;
-    const normalizedCandidate = normalizeText(candidate.name);
-    if (!product && normalizedCandidate) {
-      for (const entry of searchable) {
-        let currentScore = tokenScore(normalizedCandidate, entry.normalized);
-        if (entry.normalized === normalizedCandidate) currentScore = 1;
-        else if (entry.normalized.includes(normalizedCandidate) || normalizedCandidate.includes(entry.normalized)) {
-          currentScore = Math.max(currentScore, 0.86);
+    let tied = false;
+    if (!product) {
+      const candidatePack = measurement(candidate.name);
+      for (const entry of products) {
+        const entryPack = measurement(entry.name);
+        if (candidatePack && entryPack && (candidatePack.dimension !== entryPack.dimension || candidatePack.amount !== entryPack.amount)) continue;
+        const normalized = normalizeText(entry.name);
+        let currentScore = 0;
+        for (const variant of variants) {
+          let value = tokenScore(variant, normalized);
+          if (variant === normalized) value = 1;
+          else if (normalized.includes(variant) || variant.includes(normalized)) value = Math.max(value, 0.86);
+          currentScore = Math.max(currentScore, value);
         }
-        if (currentScore > score) {
-          score = currentScore;
-          product = entry.product;
-        }
+        if (currentScore > score) { score = currentScore; product = entry; tied = false; }
+        else if (currentScore >= 0.58 && Math.abs(currentScore - score) < 0.001 && String(entry.barcode) !== String(product?.barcode)) tied = true;
       }
     }
-    const accepted = Boolean(product && score >= 0.58);
+    const accepted = Boolean(product && score >= 0.58 && !tied);
+    const normalized = accepted ? alignInventoryRow(candidate, product) : candidate;
+    const needsChoice = tied && score >= 0.58;
     return {
-      id: `row-${index + 1}`,
-      ...candidate,
-      matched: accepted,
-      matchScore: accepted ? Number(score.toFixed(2)) : Number(score.toFixed(2)),
-      product: accepted ? {
-        id: String(product.id || product._id),
-        name: product.name,
-        barcode: product.barcode,
-        price: Number(product.price || 0),
-        stock: Number(product.stock || 0),
-        category: product.category || "Grocery",
-        unit: product.unit || "1 pc",
-        catalogue: Boolean(product.catalogue),
-      } : null,
-      include: accepted,
+      id: "row-" + (index + 1), ...normalized,
+      original: { quantity: candidate.quantity, price: candidate.price, unit: candidate.unit, quantityUnit: candidate.quantityUnit },
+      matched: accepted, matchScore: Number(score.toFixed(2)),
+      product: accepted ? { id: String(product.id || product._id), name: product.name, barcode: product.barcode,
+        price: Number(product.price || 0), stock: Number(product.stock || 0), category: product.category || "Grocery", unit: product.unit || "1 pc", catalogue: Boolean(product.catalogue) } : null,
+      warning: needsChoice ? [candidate.warning, "Several products match; choose the correct product or create a new one."].filter(Boolean).join(" ") : candidate.warning,
+      include: !needsChoice && !candidate.warning && (accepted || candidate.confidence >= 0.8),
     };
   });
 }
@@ -338,7 +316,7 @@ async function parseInventoryFile(file, language = "en") {
   }
   if (!candidates.length) {
     candidates = freeTextRows(extractedText);
-    if (process.env.GEMINI_API_KEY && extractedText) {
+    if (process.env.GEMINI_API_KEY && extractedText && ["text", "excel"].includes(kind)) {
       try {
         const geminiRows = await extractInventoryWithGemini(file, "text", extractedText);
         if (geminiRows?.length) {

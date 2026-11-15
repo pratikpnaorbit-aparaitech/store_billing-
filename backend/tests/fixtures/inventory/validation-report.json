@@ -1,0 +1,367 @@
+{
+  "generatedAt": "2026-11-15T15:23:52.516Z",
+  "model": "gemini-3.5-flash",
+  "databaseTest": true,
+  "cases": [
+    {
+      "name": "provided-printed",
+      "engine": "gemini",
+      "rowCount": 6,
+      "stockVerified": true,
+      "rows": [
+        {
+          "name": "Ponds Powder 100g",
+          "quantity": 100,
+          "unit": "100g",
+          "unitPrice": 85,
+          "lineTotal": 8500,
+          "warning": ""
+        },
+        {
+          "name": "Ponds Powder 200g",
+          "quantity": 50,
+          "unit": "200g",
+          "unitPrice": 155,
+          "lineTotal": 7750,
+          "warning": ""
+        },
+        {
+          "name": "Parle-G Biscuit 100g",
+          "quantity": 200,
+          "unit": "100g",
+          "unitPrice": 10,
+          "lineTotal": 2000,
+          "warning": ""
+        },
+        {
+          "name": "Sugar",
+          "quantity": 20,
+          "unit": "1 kg",
+          "unitPrice": 45,
+          "lineTotal": 900,
+          "warning": ""
+        },
+        {
+          "name": "Sunflower Oil 1L",
+          "quantity": 10,
+          "unit": "1L",
+          "unitPrice": 150,
+          "lineTotal": 1500,
+          "warning": ""
+        },
+        {
+          "name": "Rice",
+          "quantity": 25,
+          "unit": "1 kg",
+          "unitPrice": 60,
+          "lineTotal": 1500,
+          "warning": ""
+        }
+      ]
+    },
+    {
+      "name": "provided-handwritten",
+      "engine": "gemini",
+      "rowCount": 30,
+      "stockVerified": true,
+      "rows": [
+        {
+          "name": "तांदूळ (Rice)",
+          "quantity": 25,
+          "unit": "1 kg",
+          "unitPrice": 60,
+          "lineTotal": 1500,
+          "warning": ""
+        },
+        {
+          "name": "गहू पीठ (Wheat Flour)",
+          "quantity": 20,
+          "unit": "1 kg",
+          "unitPrice": 55,
+          "lineTotal": 1100,
+          "warning": ""
+        },
+        {
+          "name": "साखर (Sugar)",
+          "quantity": 10,
+          "unit": "1 kg",
+          "unitPrice": 45,
+          "lineTotal": 450,
+          "warning": ""
+        },
+        {
+          "name": "तूर डाळ (Toor Dal)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 120,
+          "lineTotal": 600,
+          "warning": ""
+        },
+        {
+          "name": "मूग डाळ (Moong Dal)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 110,
+          "lineTotal": 550,
+          "warning": ""
+        },
+        {
+          "name": "चणा डाळ (Chana Dal)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 100,
+          "lineTotal": 500,
+          "warning": ""
+        },
+        {
+          "name": "तेल (Sunflower Oil)",
+          "quantity": 15,
+          "unit": "1 L",
+          "unitPrice": 150,
+          "lineTotal": 2250,
+          "warning": ""
+        },
+        {
+          "name": "रवा (Sooji)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 50,
+          "lineTotal": 250,
+          "warning": ""
+        },
+        {
+          "name": "पोहा (Poha)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 40,
+          "lineTotal": 200,
+          "warning": ""
+        },
+        {
+          "name": "शेंगदाणा (Groundnut)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 120,
+          "lineTotal": 600,
+          "warning": ""
+        },
+        {
+          "name": "हळद पावडर (Turmeric)",
+          "quantity": 1,
+          "unit": "1 kg",
+          "unitPrice": 160,
+          "lineTotal": 160,
+          "warning": ""
+        },
+        {
+          "name": "मिरची पावडर (Chilli Powder)",
+          "quantity": 1,
+          "unit": "1 kg",
+          "unitPrice": 280,
+          "lineTotal": 280,
+          "warning": ""
+        },
+        {
+          "name": "धणे पावडर (Coriander Powder)",
+          "quantity": 1,
+          "unit": "1 kg",
+          "unitPrice": 260,
+          "lineTotal": 260,
+          "warning": ""
+        },
+        {
+          "name": "गरम मसाला (Garam Masala)",
+          "quantity": 0.5,
+          "unit": "1 kg",
+          "unitPrice": 420,
+          "lineTotal": 210,
+          "warning": ""
+        },
+        {
+          "name": "मीठ (Salt)",
+          "quantity": 5,
+          "unit": "1 kg",
+          "unitPrice": 20,
+          "lineTotal": 100,
+          "warning": ""
+        },
+        {
+          "name": "चहा पत्ती (Tea)",
+          "quantity": 2,
+          "unit": "1 kg",
+          "unitPrice": 300,
+          "lineTotal": 600,
+          "warning": ""
+        },
+        {
+          "name": "कॉफी (Coffee)",
+          "quantity": 0.5,
+          "unit": "1 kg",
+          "unitPrice": 650,
+          "lineTotal": 325,
+          "warning": ""
+        },
+        {
+          "name": "पॉण्ड्स पावडर (Ponds Powder 100g)",
+          "quantity": 100,
+          "unit": "100g",
+          "unitPrice": 85,
+          "lineTotal": 8500,
+          "warning": ""
+        },
+        {
+          "name": "पॉण्ड्स पावडर (Ponds Powder 200g)",
+          "quantity": 50,
+          "unit": "200g",
+          "unitPrice": 155,
+          "lineTotal": 7750,
+          "warning": ""
+        },
+        {
+          "name": "पार्ले-जी बिस्किट (Parle-G 100g)",
+          "quantity": 200,
+          "unit": "100g",
+          "unitPrice": 10,
+          "lineTotal": 2000,
+          "warning": ""
+        },
+        {
+          "name": "सनफिस्ट बिस्किट (Sunfeast 75g)",
+          "quantity": 100,
+          "unit": "75g",
+          "unitPrice": 12,
+          "lineTotal": 1200,
+          "warning": ""
+        },
+        {
+          "name": "Maggi Noodles (70g)",
+          "quantity": 50,
+          "unit": "70g",
+          "unitPrice": 14,
+          "lineTotal": 700,
+          "warning": ""
+        },
+        {
+          "name": "ब्रेड (Bread)",
+          "quantity": 30,
+          "unit": "1 pc",
+          "unitPrice": 40,
+          "lineTotal": 1200,
+          "warning": ""
+        },
+        {
+          "name": "दूध पावडर (Milk Powder 500g)",
+          "quantity": 10,
+          "unit": "500g",
+          "unitPrice": 350,
+          "lineTotal": 3500,
+          "warning": ""
+        },
+        {
+          "name": "बर्नव्हिटा (Bournvita 500g)",
+          "quantity": 5,
+          "unit": "500g",
+          "unitPrice": 420,
+          "lineTotal": 2100,
+          "warning": ""
+        },
+        {
+          "name": "कोलगेट टूथपेस्ट (Colgate 100g)",
+          "quantity": 20,
+          "unit": "100g",
+          "unitPrice": 75,
+          "lineTotal": 1500,
+          "warning": ""
+        },
+        {
+          "name": "लाईफबॉय साबण (Lifebuoy Soap 100g)",
+          "quantity": 50,
+          "unit": "100g",
+          "unitPrice": 32,
+          "lineTotal": 1600,
+          "warning": ""
+        },
+        {
+          "name": "हेअर ऑइल (Parachute Oil 200ml)",
+          "quantity": 20,
+          "unit": "200ml",
+          "unitPrice": 125,
+          "lineTotal": 2500,
+          "warning": ""
+        },
+        {
+          "name": "डिटर्जंट पावडर (Surf Excel 1kg)",
+          "quantity": 10,
+          "unit": "1kg",
+          "unitPrice": 240,
+          "lineTotal": 2400,
+          "warning": ""
+        },
+        {
+          "name": "हारपिक (Harpic 500ml)",
+          "quantity": 10,
+          "unit": "500ml",
+          "unitPrice": 110,
+          "lineTotal": 1100,
+          "warning": ""
+        }
+      ]
+    },
+    {
+      "name": "generated-handwritten",
+      "engine": "gemini",
+      "rowCount": 6,
+      "stockVerified": true,
+      "rows": [
+        {
+          "name": "Ponds Powder 100g",
+          "quantity": 100,
+          "unit": "100g",
+          "unitPrice": 85,
+          "lineTotal": 8500,
+          "warning": ""
+        },
+        {
+          "name": "Parle-G Biscuit 100g",
+          "quantity": 200,
+          "unit": "100g",
+          "unitPrice": 10,
+          "lineTotal": 2000,
+          "warning": ""
+        },
+        {
+          "name": "साखर (Sugar)",
+          "quantity": 20,
+          "unit": "1 kg",
+          "unitPrice": 45,
+          "lineTotal": 900,
+          "warning": ""
+        },
+        {
+          "name": "तांदूळ (Rice)",
+          "quantity": 25,
+          "unit": "1 kg",
+          "unitPrice": 60,
+          "lineTotal": 1500,
+          "warning": ""
+        },
+        {
+          "name": "सूरजमुखी तेल (Sunflower Oil 1L)",
+          "quantity": 10,
+          "unit": "1L",
+          "unitPrice": 150,
+          "lineTotal": 1500,
+          "warning": ""
+        },
+        {
+          "name": "चाय (Tea)",
+          "quantity": 2,
+          "unit": "1 kg",
+          "unitPrice": 300,
+          "lineTotal": 600,
+          "warning": ""
+        }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,7 @@ export async function previewInventoryFile(asset, language = "en") {
   form.append("language", language);
   form.append("file", asUploadPart(asset));
   const response = await api.post("/inventory-import/preview", form, {
-    timeout: 120000,
+    timeout: 180000,
     headers: { "Content-Type": "multipart/form-data" },
   });
   return response.data.data;

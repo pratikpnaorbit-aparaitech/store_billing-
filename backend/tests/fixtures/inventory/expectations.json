@@ -1,0 +1,129 @@
+[
+  {
+    "name": "provided-printed",
+    "file": "../../src/assets/import/sample-printed-bill.png",
+    "names": [
+      "Ponds Powder 100g",
+      "Ponds Powder 200g",
+      "Parle-G Biscuit 100g",
+      "Sugar",
+      "Sunflower Oil 1L",
+      "Rice"
+    ],
+    "quantities": [
+      100,
+      50,
+      200,
+      20,
+      10,
+      25
+    ],
+    "prices": [
+      85,
+      155,
+      10,
+      45,
+      150,
+      60
+    ],
+    "seed": true
+  },
+  {
+    "name": "provided-handwritten",
+    "file": "../../src/assets/import/sample-handwritten-bill.png",
+    "quantities": [
+      25,
+      20,
+      10,
+      5,
+      5,
+      5,
+      15,
+      5,
+      5,
+      5,
+      1,
+      1,
+      1,
+      0.5,
+      5,
+      2,
+      0.5,
+      100,
+      50,
+      200,
+      100,
+      50,
+      30,
+      10,
+      5,
+      20,
+      50,
+      20,
+      10,
+      10
+    ],
+    "prices": [
+      60,
+      55,
+      45,
+      120,
+      110,
+      100,
+      150,
+      50,
+      40,
+      120,
+      160,
+      280,
+      260,
+      420,
+      20,
+      300,
+      650,
+      85,
+      155,
+      10,
+      12,
+      14,
+      40,
+      350,
+      420,
+      75,
+      32,
+      125,
+      240,
+      110
+    ],
+    "seed": false
+  },
+  {
+    "name": "generated-handwritten",
+    "file": "../tests/fixtures/inventory/generated-handwritten-bill.png",
+    "names": [
+      "Ponds Powder 100g",
+      "Parle-G Biscuit 100g",
+      "Sugar",
+      "Rice",
+      "Sunflower Oil 1L",
+      "Tea"
+    ],
+    "quantities": [
+      100,
+      200,
+      20,
+      25,
+      10,
+      2
+    ],
+    "prices": [
+      85,
+      10,
+      45,
+      60,
+      150,
+      300
+    ],
+    "seed": true
+  }
+]

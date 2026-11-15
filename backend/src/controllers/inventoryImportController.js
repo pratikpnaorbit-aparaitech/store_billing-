@@ -26,12 +26,12 @@ function uploadSingle(req, res, next) {
   });
 }
 
-function safeBarcode(item, index) {
+function safeBarcode(item) {
   const barcode = String(item.barcode || "").trim();
   if (/^\d{8,14}$/.test(barcode) || /^MANUAL-/i.test(barcode)) return barcode;
   const digest = crypto
     .createHash("sha1")
-    .update(`${item.name || ""}:${Date.now()}:${index}`)
+    .update(`${String(item.name || "").normalize("NFKC").trim().toLowerCase()}:${String(item.unit || "1 pc").trim().toLowerCase()}`)
     .digest("hex")
     .slice(0, 12)
     .toUpperCase();
@@ -105,10 +105,15 @@ exports.applyInventoryImport = async (req, res) => {
 
     selected.forEach((item, index) => {
       const quantity = Number(item.quantity);
-      if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 1000000) {
+      if (!Number.isFinite(quantity) || quantity <= 0 || quantity > 1000000) {
         const error = new Error(`Row ${index + 1} has an invalid quantity.`);
         error.status = 400;
         throw error;
+      }
+      const hasPrice = item.price !== null && item.price !== undefined && String(item.price).trim() !== "";
+      const reviewedPrice = hasPrice ? Number(item.price) : null;
+      if (hasPrice && (!Number.isFinite(reviewedPrice) || reviewedPrice < 0 || reviewedPrice > 100000000)) {
+        const error = new Error("Row " + (index + 1) + " has an invalid unit price."); error.status = 400; throw error;
       }
       const productId = String(item.productId || "");
       const owned = ownedById.get(productId);
@@ -128,6 +133,9 @@ exports.applyInventoryImport = async (req, res) => {
         brand: "",
         image: "",
       };
+      if (!owned && reviewedPrice === null && !(Number(catalog?.price) > 0)) {
+        const error = new Error("Row " + (index + 1) + " needs a unit price before creating the product."); error.status = 400; throw error;
+      }
       if (!base.name) {
         const error = new Error(`Row ${index + 1} needs a product name.`);
         error.status = 400;
@@ -138,22 +146,23 @@ exports.applyInventoryImport = async (req, res) => {
         barcode,
         quantity: quantity + Number(existing?.quantity || 0),
         base,
+        price: hasPrice && item.updatePrice !== false ? reviewedPrice : existing?.price ?? null,
         source: owned?.source || (catalog ? "catalogue" : "import"),
       });
     });
 
-    const operations = Array.from(aggregates.values()).map(({ barcode, quantity, base, source }) => ({
+    const operations = Array.from(aggregates.values()).map(({ barcode, quantity, base, source, price }) => ({
       updateOne: {
         filter: { owner: req.userId, barcode },
         update: {
-          $set: { active: true },
+          $set: { active: true, ...(price === null ? {} : { price }) },
           $setOnInsert: {
             owner: req.userId,
             barcode,
             name: String(base.name).trim(),
             brand: String(base.brand || "").trim(),
             category: String(base.category || "Grocery").trim(),
-            price: Math.max(0, Number(base.price || 0)),
+            ...(price === null ? { price: Math.max(0, Number(base.price || 0)) } : {}),
             unit: String(base.unit || "1 pc").trim(),
             image: String(base.image || ""),
             imagePublicId: "",
@@ -165,7 +174,10 @@ exports.applyInventoryImport = async (req, res) => {
         setDefaultsOnInsert: false,
       },
     }));
-    await Product.bulkWrite(operations, { ordered: true });
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(() => Product.bulkWrite(operations, { ordered: true, session }));
+    } finally { await session.endSession(); }
     const products = await Product.find({
       owner: req.userId,
       barcode: { $in: Array.from(aggregates.keys()) },

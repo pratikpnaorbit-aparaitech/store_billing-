@@ -945,6 +945,46 @@ const mr = {
   "Allow pop-ups to print the receipt.": "पावती प्रिंट करण्यासाठी पॉप-अपला परवानगी द्या.",
 };
 
+
+Object.assign(hi, {
+  "Bill format & sample": "बिल का नमूना और तरीका",
+  "Unit rate": "प्रति इकाई दर",
+  "Product name": "उत्पाद का नाम",
+  "Rate detected from bill": "बिल से मिली दर",
+  "Current product rate": "उत्पाद की मौजूदा दर",
+  "Price missing on bill": "बिल में दर नहीं मिली",
+  "Check prices": "दर जाँचें",
+  "NEW": "नया",
+  "NEW PRODUCT / CHOOSE MATCH": "नया उत्पाद / मिलान चुनें",
+  "Bill rate and quantity will be kept": "बिल की दर और मात्रा बनी रहेगी",
+  "Stock: {{current}} + {{added}} = {{total}}": "स्टॉक: {{current}} + {{added}} = {{total}}",
+  "Every selected row needs a quantity greater than zero.": "हर चुनी पंक्ति में शून्य से अधिक मात्रा चाहिए।",
+  "Enter a valid unit rate for every selected product. Bill rates are filled automatically when readable.": "हर चुने उत्पाद की सही प्रति इकाई दर भरें। बिल की साफ दर अपने आप भरती है।",
+  "Check names, quantities, unit rates and stock totals. Clear new products are ready to add; uncertain matches need your choice.": "नाम, मात्रा, प्रति इकाई दर और नया स्टॉक जाँचें। साफ नए उत्पाद जोड़ने के लिए तैयार हैं; अस्पष्ट मिलान चुनें।",
+  "Upload a photo, PDF, CSV or Excel file. Product names, quantities and unit rates are detected and matched with your catalogue.": "फोटो, PDF, CSV या Excel अपलोड करें। नाम, मात्रा और प्रति इकाई दर पढ़कर उत्पाद मिलाए जाते हैं।",
+  "Quantity × rate differs from the row amount; check units, discounts and rate.": "मात्रा × दर पंक्ति की रकम से अलग है; इकाई, छूट और दर जाँचें।",
+  "Several products match; choose the correct product or create a new one.": "कई उत्पाद मिलते हैं; सही उत्पाद चुनें या नया बनाएँ।"
+});
+Object.assign(mr, {
+  "Bill format & sample": "बिलचा नमुना व मार्गदर्शन",
+  "Unit rate": "प्रति एकक दर",
+  "Product name": "उत्पादनाचे नाव",
+  "Rate detected from bill": "बिलमधून वाचलेला दर",
+  "Current product rate": "उत्पादनाचा सध्याचा दर",
+  "Price missing on bill": "बिलवर दर सापडला नाही",
+  "Check prices": "दर तपासा",
+  "NEW": "नवीन",
+  "NEW PRODUCT / CHOOSE MATCH": "नवीन उत्पादन / जुळणी निवडा",
+  "Bill rate and quantity will be kept": "बिलचा दर आणि प्रमाण जपले जाईल",
+  "Stock: {{current}} + {{added}} = {{total}}": "स्टॉक: {{current}} + {{added}} = {{total}}",
+  "Every selected row needs a quantity greater than zero.": "निवडलेल्या प्रत्येक ओळीचे प्रमाण शून्यापेक्षा जास्त असावे.",
+  "Enter a valid unit rate for every selected product. Bill rates are filled automatically when readable.": "प्रत्येक निवडलेल्या उत्पादनाचा योग्य प्रति एकक दर भरा. स्पष्ट असलेला बिलचा दर आपोआप भरला जातो.",
+  "Check names, quantities, unit rates and stock totals. Clear new products are ready to add; uncertain matches need your choice.": "नाव, प्रमाण, प्रति एकक दर व नवीन स्टॉक तपासा. स्पष्ट नवीन उत्पादने जोडण्यासाठी तयार आहेत; संदिग्ध जुळणी निवडा.",
+  "Upload a photo, PDF, CSV or Excel file. Product names, quantities and unit rates are detected and matched with your catalogue.": "फोटो, PDF, CSV किंवा Excel अपलोड करा. नाव, प्रमाण व प्रति एकक दर वाचून उत्पादनांची जुळणी केली जाते.",
+  "Quantity × rate differs from the row amount; check units, discounts and rate.": "प्रमाण × दर ही ओळीच्या रकमेपेक्षा वेगळी आहे; एकक, सवलत आणि दर तपासा.",
+  "Several products match; choose the correct product or create a new one.": "अनेक उत्पादने जुळत आहेत; योग्य उत्पादन निवडा किंवा नवीन तयार करा."
+});
+
 const dictionaries = { hi, mr };
 
 export function translate(text, language = "en", variables = {}) {

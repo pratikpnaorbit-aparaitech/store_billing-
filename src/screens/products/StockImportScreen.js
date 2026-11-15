@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Modal,
   Pressable,
   ScrollView,
@@ -20,6 +22,9 @@ import { useProductStore } from "../../store/productStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useTranslation } from "../../i18n";
 
+import BillImportGuide from "../../components/inventory/BillImportGuide";
+import { asciiDigits, inventoryReviewRow, selectInventoryProduct, createInventoryProduct, inventoryStockAfter } from "../../utils/inventoryImport";
+
 const DOCUMENT_TYPES = [
   "application/pdf",
   "text/csv",
@@ -32,6 +37,9 @@ export default function StockImportScreen({ navigation }) {
   const products = useProductStore((state) => state.products);
   const refreshProducts = useProductStore((state) => state.refreshProducts);
   const language = useSettingsStore((state) => state.settings.language || "en");
+  const pendingLaunch = useRef(null);
+  const [guideVisible, setGuideVisible] = useState(false);
+  const [pendingSource, setPendingSource] = useState(null);
   const [phase, setPhase] = useState("idle");
   const [document, setDocument] = useState(null);
   const [rows, setRows] = useState([]);
@@ -51,17 +59,7 @@ export default function StockImportScreen({ navigation }) {
       const data = await previewInventoryFile(asset, language);
       setDocument(data.document);
       setSummary(data.summary);
-      setRows(data.candidates.map((candidate) => ({
-        ...candidate,
-        include: candidate.include,
-        productId: candidate.product?.id || "",
-        productName: candidate.product?.name || "",
-        productBarcode: candidate.product?.barcode || candidate.barcode || "",
-        quantity: String(candidate.quantity || 1),
-        price: String(candidate.product?.price ?? candidate.price ?? 0),
-        category: candidate.product?.category || "Grocery",
-        unit: candidate.product?.unit || "1 pc",
-      })));
+      setRows(data.candidates.map(inventoryReviewRow));
       setPhase("review");
     } catch (error) {
       setPhase("idle");
@@ -104,14 +102,28 @@ export default function StockImportScreen({ navigation }) {
     if (!response.canceled) preview(response.assets[0]);
   };
 
+  const showGuide = (source = null) => { setPendingSource(source); setGuideVisible(true); };
+  const launchSource = () => { const action = pendingLaunch.current; pendingLaunch.current = null; if (action) action(); };
+  const continueGuide = () => {
+    setGuideVisible(false);
+    const action = { camera: takePhoto, image: chooseImage, document: chooseDocument }[pendingSource];
+    setPendingSource(null);
+    pendingLaunch.current = action;
+    if (Platform.OS !== "ios") requestAnimationFrame(launchSource);
+  };
+
   const updateRow = (id, updates) => {
     setRows((current) => current.map((row) => row.id === id ? { ...row, ...updates } : row));
   };
 
   const apply = async () => {
-    const invalid = rows.find((row) => row.include && (!Number.isInteger(Number(row.quantity)) || Number(row.quantity) <= 0));
+    const invalid = rows.find((row) => row.include && (!Number.isFinite(Number(row.quantity)) || Number(row.quantity) <= 0));
     if (invalid) {
-      Alert.alert(t("Check quantities"), t("Every selected row needs a whole quantity greater than zero."));
+      Alert.alert(t("Check quantities"), t("Every selected row needs a quantity greater than zero."));
+      return;
+    }
+    if (rows.some((row) => row.include && (!String(row.price).trim() || !Number.isFinite(Number(row.price)) || Number(row.price) < 0))) {
+      Alert.alert(t("Check prices"), t("Enter a valid unit rate for every selected product. Bill rates are filled automatically when readable."));
       return;
     }
     if (!selectedCount) {
@@ -126,7 +138,8 @@ export default function StockImportScreen({ navigation }) {
         quantity: Number(row.quantity),
         name: row.productName || row.name,
         barcode: row.productBarcode || row.barcode,
-        price: Number(row.price || 0),
+        price: Number(row.price),
+        updatePrice: row.updatePrice,
         category: row.category,
         unit: row.unit,
       })));
@@ -148,7 +161,7 @@ export default function StockImportScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : Platform.OS === "android" ? "height" : undefined} style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
@@ -157,6 +170,7 @@ export default function StockImportScreen({ navigation }) {
           <Text style={styles.title}>{t("Import stock")}</Text>
           <Text style={styles.subtitle}>{t("Scan supplier bills safely")}</Text>
         </View>
+        <TouchableOpacity accessibilityLabel={t("Bill format & sample")} style={styles.back} onPress={() => showGuide()}><Ionicons name="help-circle-outline" size={25} color="#0A46E4" /></TouchableOpacity>
       </View>
 
       {phase === "idle" ? (
@@ -167,14 +181,15 @@ export default function StockImportScreen({ navigation }) {
             </View>
             <Text style={styles.heroTitle}>{t("Turn a bill into stock")}</Text>
             <Text style={styles.heroText}>
-              {t("Upload a photo, PDF, CSV or Excel file. Product names and quantities are detected and matched with your catalogue.")}
+              {t("Upload a photo, PDF, CSV or Excel file. Product names, quantities and unit rates are detected and matched with your catalogue.")}
             </Text>
           </View>
 
+          <TouchableOpacity style={styles.guideLink} onPress={() => showGuide()}><Ionicons name="document-text-outline" size={21} color="#0A46E4" /><Text style={styles.guideLinkText}>{t("Bill format & sample")}</Text><Ionicons name="chevron-forward" size={18} color="#0A46E4" /></TouchableOpacity>
           <Text style={styles.sectionTitle}>{t("Choose a source")}</Text>
-          <SourceCard icon="camera-outline" title={t("Take bill photo")} detail={t("Best with a clear, straight image")} color="#0A46E4" onPress={takePhoto} />
-          <SourceCard icon="images-outline" title={t("Choose an image")} detail={t("Printed or handwritten bill")} color="#7C3AED" onPress={chooseImage} />
-          <SourceCard icon="document-attach-outline" title={t("Choose PDF, CSV or Excel")} detail={t("Digital invoices and stock sheets")} color="#059669" onPress={chooseDocument} />
+          <SourceCard icon="camera-outline" title={t("Take bill photo")} detail={t("Best with a clear, straight image")} color="#0A46E4" onPress={() => showGuide("camera")} />
+          <SourceCard icon="images-outline" title={t("Choose an image")} detail={t("Printed or handwritten bill")} color="#7C3AED" onPress={() => showGuide("image")} />
+          <SourceCard icon="document-attach-outline" title={t("Choose PDF, CSV or Excel")} detail={t("Digital invoices and stock sheets")} color="#059669" onPress={() => showGuide("document")} />
 
           <View style={styles.safety}>
             <Ionicons name="shield-checkmark-outline" size={22} color="#15803D" />
@@ -201,6 +216,7 @@ export default function StockImportScreen({ navigation }) {
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.reviewContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             ListHeaderComponent={
               <>
                 <View style={styles.documentCard}>
@@ -215,7 +231,7 @@ export default function StockImportScreen({ navigation }) {
                 </View>
                 <View style={styles.reviewInfo}>
                   <Ionicons name="information-circle-outline" size={20} color="#1D4ED8" />
-                  <Text style={styles.reviewInfoText}>{t("Check product matches and quantities. Unmatched rows are off until you review them.")}</Text>
+                  <Text style={styles.reviewInfoText}>{t("Check names, quantities, unit rates and stock totals. Clear new products are ready to add; uncertain matches need your choice.")}</Text>
                 </View>
               </>
             }
@@ -274,23 +290,17 @@ export default function StockImportScreen({ navigation }) {
         products={products}
         onClose={() => setMatchingRowId(null)}
         onSelect={(product) => {
-          updateRow(matchingRowId, {
-            include: true,
-            productId: product.id,
-            productName: product.name,
-            productBarcode: product.barcode,
-            price: String(product.price || 0),
-            category: product.category,
-            unit: product.unit,
-          });
+          const current = rows.find((row) => row.id === matchingRowId);
+          updateRow(matchingRowId, selectInventoryProduct(current, product));
           setMatchingRowId(null);
         }}
         onCreateNew={() => {
-          updateRow(matchingRowId, { include: true, productId: "", productName: "" });
+          updateRow(matchingRowId, createInventoryProduct(rows.find((row) => row.id === matchingRowId)));
           setMatchingRowId(null);
         }}
       />
-    </View>
+      <BillImportGuide visible={guideVisible} source={pendingSource} onClose={() => { setGuideVisible(false); setPendingSource(null); }} onContinue={continueGuide} onDismiss={launchSource} />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -319,36 +329,37 @@ function ReviewRow({ row, onUpdate, onChooseProduct, disabled }) {
         <View style={styles.rowCopy}>
           <Text style={styles.detectedLabel}>{t("DETECTED")}</Text>
           <Text style={styles.detectedName} numberOfLines={2}>{row.name}</Text>
-          {row.warning ? <Text style={styles.warning}>{row.warning}</Text> : null}
+          {row.warning ? <Text style={styles.warning}>{t(row.warning)}</Text> : null}
         </View>
         <View style={[styles.matchPill, row.productId ? styles.matchedPill : styles.unmatchedPill]}>
-          <Text style={[styles.matchText, !row.productId && styles.unmatchedText]}>{row.productId ? `${Math.round(row.matchScore * 100)}%` : t("REVIEW")}</Text>
+          <Text style={[styles.matchText, !row.productId && styles.unmatchedText]}>{row.productId ? `${Math.round(row.matchScore * 100)}%` : t(row.include ? "NEW" : "REVIEW")}</Text>
         </View>
       </View>
 
       <TouchableOpacity style={styles.matchBox} onPress={onChooseProduct} disabled={disabled}>
         <View style={styles.matchIcon}><Ionicons name={row.productId ? "link-outline" : "search-outline"} size={19} color="#0A46E4" /></View>
         <View style={styles.matchCopy}>
-          <Text style={styles.matchLabel}>{row.productId ? t("MATCHED PRODUCT") : t("PRODUCT MATCH NEEDED")}</Text>
-          <Text style={styles.matchName} numberOfLines={2}>{row.productName || t("Tap to choose a product")}</Text>
+          <Text style={styles.matchLabel}>{row.productId ? t("MATCHED PRODUCT") : t("NEW PRODUCT / CHOOSE MATCH")}</Text>
+          <Text style={styles.matchName} numberOfLines={2}>{row.productName || row.name || t("Tap to choose a product")}</Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
       </TouchableOpacity>
 
+      {!row.productId ? <TextInput accessibilityLabel={t("Product name")} value={row.productName} onChangeText={(value) => onUpdate({ productName: value })} editable={!disabled} style={styles.nameInput} placeholder={t("Product name")} /> : null}
       <View style={styles.quantityRow}>
         <Text style={styles.quantityLabel}>{t("Quantity to add")}</Text>
         <View style={styles.quantityControl}>
           <TouchableOpacity
             style={styles.quantityButton}
-            onPress={() => onUpdate({ quantity: String(Math.max(1, Number(row.quantity || 1) - 1)) })}
+            onPress={() => onUpdate({ quantity: String(Math.max(0, Number(row.quantity || 0) - 1)) })}
             disabled={disabled}
           >
             <Ionicons name="remove" size={18} color="#0F172A" />
           </TouchableOpacity>
           <TextInput
             value={row.quantity}
-            onChangeText={(value) => onUpdate({ quantity: value.replace(/[^\d]/g, "") })}
-            keyboardType="number-pad"
+            onChangeText={(value) => onUpdate({ quantity: asciiDigits(value).replace(/[^\d.]/g, "") })}
+            keyboardType="decimal-pad"
             selectTextOnFocus
             style={styles.quantityInput}
             editable={!disabled}
@@ -362,6 +373,8 @@ function ReviewRow({ row, onUpdate, onChooseProduct, disabled }) {
           </TouchableOpacity>
         </View>
       </View>
+      <View style={styles.quantityRow}><View style={styles.rowCopy}><Text style={styles.quantityLabel}>{t("Unit rate")} (₹ / {row.unit || "1 pc"})</Text><Text style={styles.rateSource}>{t(row.billPrice !== null ? "Rate detected from bill" : row.productId ? "Current product rate" : "Price missing on bill")}</Text></View><TextInput accessibilityLabel={t("Unit rate")} value={row.price} onChangeText={(value) => onUpdate({ price: asciiDigits(value).replace(/[^\d.]/g, ""), updatePrice: true })} keyboardType="decimal-pad" style={styles.priceInput} editable={!disabled} placeholder="0.00" /></View>
+      <Text style={styles.stockPreview}>{t("Stock: {{current}} + {{added}} = {{total}}", { current: row.currentStock || 0, added: row.quantity || 0, total: inventoryStockAfter(row) })}</Text>
     </View>
   );
 }
@@ -392,7 +405,7 @@ function ProductMatchModal({ visible, products, onClose, onSelect, onCreateNew }
           </View>
           <TouchableOpacity style={styles.newItem} onPress={onCreateNew}>
             <View style={styles.newItemIcon}><Ionicons name="add" size={21} color="#FFFFFF" /></View>
-            <View style={styles.sourceCopy}><Text style={styles.newItemTitle}>{t("Create as new product")}</Text><Text style={styles.sourceDetail}>{t("Price can be completed from Products")}</Text></View>
+            <View style={styles.sourceCopy}><Text style={styles.newItemTitle}>{t("Create as new product")}</Text><Text style={styles.sourceDetail}>{t("Bill rate and quantity will be kept")}</Text></View>
             <Ionicons name="chevron-forward" size={19} color="#94A3B8" />
           </TouchableOpacity>
           <FlatList
@@ -416,6 +429,7 @@ function ProductMatchModal({ visible, products, onClose, onSelect, onCreateNew }
 }
 
 const styles = StyleSheet.create({
+  guideLink: { flexDirection: "row", alignItems: "center", gap: 10, padding: 16, borderRadius: 18, backgroundColor: "#EAF1FF", marginTop: 14 }, guideLinkText: { flex: 1, color: "#0A46E4", fontWeight: "900" }, nameInput: { minHeight: 46, borderRadius: 12, borderWidth: 1, borderColor: "#CBD5E1", paddingHorizontal: 12, marginTop: 12, color: "#0F172A" }, rateSource: { fontSize: 10, color: "#64748B", marginTop: 4 }, priceInput: { width: 100, height: 44, borderRadius: 12, borderWidth: 1, borderColor: "#BFDBFE", backgroundColor: "#EFF6FF", paddingHorizontal: 10, fontWeight: "800", textAlign: "right", color: "#0F172A" }, stockPreview: { padding: 11, borderRadius: 12, backgroundColor: "#F0FDF4", color: "#166534", fontWeight: "800", marginTop: 14 },
   screen: { flex: 1, backgroundColor: "#F6F8FC" },
   header: { paddingTop: 44, paddingHorizontal: 20, paddingBottom: 14, flexDirection: "row", alignItems: "center", backgroundColor: "#F6F8FC" },
   back: { width: 44, height: 44, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E2E8F0", alignItems: "center", justifyContent: "center", marginRight: 13 },
