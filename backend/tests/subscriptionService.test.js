@@ -3,10 +3,20 @@ const crypto = require("crypto");
 const test = require("node:test");
 const {
   planView,
+  providerPlanIsMissing,
   priceChangeForSubscription,
   subscriptionView,
   verifySubscriptionSignature,
 } = require("../src/services/subscriptionService");
+
+test("recognises a plan saved under a different Razorpay account", () => {
+  assert.equal(providerPlanIsMissing({
+    statusCode: 400,
+    error: { description: "The ID provided is invalid or could not be found." },
+  }), true);
+  assert.equal(providerPlanIsMissing({ statusCode: 401, message: "Authentication failed" }), false);
+  assert.equal(providerPlanIsMissing({ statusCode: 503, message: "Provider unavailable" }), false);
+});
 
 const createdAt = new Date("2026-07-01T00:00:00.000Z");
 const baseUser = {

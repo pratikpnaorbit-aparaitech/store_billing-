@@ -183,6 +183,13 @@ function razorpayMode() {
     : "test";
 }
 
+function providerPlanIsMissing(error) {
+  const status = Number(error?.statusCode || error?.status || error?.error?.status_code || 0);
+  const message = String(error?.error?.description || error?.description || error?.message || "").toLowerCase();
+  return [400, 404].includes(status)
+    && /(plan|id).*(invalid|not found|does not exist)|(invalid|not found|does not exist).*(plan|id)/.test(message);
+}
+
 async function ensureDefaultPlans() {
   await Promise.all(DEFAULT_PLANS.map(async (defaults) => {
     const existing = await SubscriptionPlan.findOne({
@@ -234,7 +241,16 @@ async function activePlanForCheckout(requestedPlanId = "") {
 async function ensureProviderPlan(plan) {
   const mode = razorpayMode();
   const existingId = plan.razorpayPlanIds?.[mode];
-  if (existingId) return existingId;
+  if (existingId) {
+    try {
+      await razorpayClient().plans.fetch(existingId);
+      return existingId;
+    } catch (error) {
+      // A plan saved under another Razorpay account cannot be used after keys change.
+      // Recreate it for the currently configured account, but preserve real provider outages.
+      if (!providerPlanIsMissing(error)) throw error;
+    }
+  }
 
   const providerPlan = await razorpayClient().plans.create({
     period: "monthly",
@@ -559,6 +575,7 @@ module.exports = {
   providerSubscriptionForCheckout,
   publishPlan,
   razorpayClient,
+  providerPlanIsMissing,
   recordEvent,
   subscriptionAmount,
   subscriptionView,
